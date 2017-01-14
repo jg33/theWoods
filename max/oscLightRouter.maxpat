@@ -5,11 +5,11 @@
 			"major" : 7,
 			"minor" : 2,
 			"revision" : 5,
-			"architecture" : "x64",
+			"architecture" : "x86",
 			"modernui" : 1
 		}
 ,
-		"rect" : [ 650.0, 180.0, 640.0, 480.0 ],
+		"rect" : [ 287.0, 201.0, 640.0, 480.0 ],
 		"bglocked" : 0,
 		"openinpresentation" : 0,
 		"default_fontsize" : 12.0,
@@ -43,7 +43,7 @@
 					"numinlets" : 1,
 					"numoutlets" : 3,
 					"outlettype" : [ "", "", "" ],
-					"patching_rect" : [ 338.0, 91.0, 53.0, 20.0 ],
+					"patching_rect" : [ 414.0, 111.0, 53.0, 20.0 ],
 					"style" : "",
 					"text" : "unjoin 2"
 				}
@@ -56,7 +56,7 @@
 					"numinlets" : 1,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 242.0, 140.0, 121.0, 20.0 ],
+					"patching_rect" : [ 284.0, 151.0, 121.0, 20.0 ],
 					"style" : "",
 					"text" : "sprintf /%i/intensity 1"
 				}
@@ -69,7 +69,7 @@
 					"numinlets" : 1,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 464.0, 140.0, 105.0, 20.0 ],
+					"patching_rect" : [ 506.0, 151.0, 105.0, 20.0 ],
 					"style" : "",
 					"text" : "sprintf /%i/down 1"
 				}
@@ -82,7 +82,7 @@
 					"numinlets" : 1,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 372.0, 140.0, 90.0, 20.0 ],
+					"patching_rect" : [ 414.0, 151.0, 90.0, 20.0 ],
 					"style" : "",
 					"text" : "sprintf /%i/up 1"
 				}
@@ -95,7 +95,7 @@
 					"numinlets" : 1,
 					"numoutlets" : 1,
 					"outlettype" : [ "bang" ],
-					"patching_rect" : [ 338.0, 35.0, 60.0, 20.0 ],
+					"patching_rect" : [ 414.0, 55.0, 60.0, 20.0 ],
 					"style" : "",
 					"text" : "loadbang"
 				}
@@ -108,7 +108,7 @@
 					"numinlets" : 1,
 					"numoutlets" : 2,
 					"outlettype" : [ "", "" ],
-					"patching_rect" : [ 338.0, 64.0, 74.0, 20.0 ],
+					"patching_rect" : [ 414.0, 84.0, 74.0, 20.0 ],
 					"style" : "",
 					"text" : "patcherargs"
 				}
@@ -136,7 +136,7 @@
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 50.0, 204.0, 91.0, 20.0 ],
 					"style" : "",
-					"text" : "/#1/intensity $1"
+					"text" : "/1/intensity 1"
 				}
 
 			}
@@ -185,9 +185,9 @@
 					"numinlets" : 1,
 					"numoutlets" : 5,
 					"outlettype" : [ "", "", "", "", "" ],
-					"patching_rect" : [ 50.0, 100.0, 215.0, 20.0 ],
+					"patching_rect" : [ 50.0, 100.0, 271.0, 20.0 ],
 					"style" : "",
-					"text" : "OSC-route /intensity /location /inc /dec"
+					"text" : "OSC-route /intensity /location /stepUp /stepDown"
 				}
 
 			}
