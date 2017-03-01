@@ -12,6 +12,8 @@
 #define CAM_WIDTH 640
 #define CAM_HEIGHT 480
 
+#define IDLE_TIMEOUT 100
+
 #include <stdio.h>
 #include "ofMain.h"
 #include "ofxCv.h"
@@ -37,7 +39,9 @@ public:
     vector<unsigned int> getDeadLabels();
     
     ofxPanel gui;
-
+    
+    int idleTimer = 0;
+    bool bIsIdle = false;
     
 private:
     

@@ -9,7 +9,7 @@
 #include "Light.hpp"
 
 void Light::react(Target *_target){
-    
+      
     float dist = current.distance(_target->current);
     
     if(dist<maxDistance){
@@ -33,61 +33,82 @@ void Light::react(Target *_target){
 
 void Light::update(){
     
-    if(trackedPoints.size()>0){
-        Target* nearestTarget = trackedPoints[0];
-        Target* nearestLivingTarget = trackedPoints[0];
-        ofPoint nearestPt = nearestTarget->current;
-        float distanceSum =0;
-        
-        for(int i=0;i<trackedPoints.size();i++){
+    
+    if(!bIsIdle){ // if not idle!
+    
+        if(trackedPoints.size()>0){
+            Target* nearestTarget = trackedPoints[0];
+            Target* nearestLivingTarget = trackedPoints[0];
+            ofPoint nearestPt = nearestTarget->current;
+            float distanceSum =0;
             
-            // Calc Dist
-            float dist = current.distance(trackedPoints[i]->current);
-            float distInfluence = (maxDistance-dist)/maxDistance;
-            
-            distInfluence*=trackedPoints[i]->influence;
-            
-            // Find nearest
-            if(dist< current.distance(nearestPt)){
-                nearestTarget = trackedPoints[i];
-                nearestPt = nearestTarget->current;
-                if(!nearestTarget->bDying){
-                    nearestLivingTarget = nearestTarget;
+            for(int i=0;i<trackedPoints.size();i++){
+                
+                // Calc Dist
+                float dist = current.distance(trackedPoints[i]->current);
+                float distInfluence = (maxDistance-dist)/maxDistance;
+                
+                distInfluence*=trackedPoints[i]->influence;
+                
+                // Find nearest
+                if(dist< current.distance(nearestPt)){
+                    nearestTarget = trackedPoints[i];
+                    nearestPt = nearestTarget->current;
+                    if(!nearestTarget->bDying){
+                        nearestLivingTarget = nearestTarget;
+                    }
                 }
+                
+                
+                ofPoint tempTarget = track.getClosestPoint(trackedPoints[i]->current);
+                moveTarget.interpolate(tempTarget,distInfluence);
+                
+                distanceSum += dist;
             }
             
+            // Set Intensity based on nearest living target only
+            //    float nearDist = current.distance(nearestPt);
+            //     targetIntensity = (maxDistance-nearDist)/maxDistance;
             
-            ofPoint tempTarget = track.getClosestPoint(trackedPoints[i]->current);
-            moveTarget.interpolate(tempTarget,distInfluence);
+            float nearDist = current.distance(nearestLivingTarget->current);
+            targetIntensity = (maxDistance-nearDist)/maxDistance;
+            targetIntensity *= nearestLivingTarget->influence;
             
-            distanceSum += dist;
+            //lerp intensity
+            intensity += (targetIntensity-intensity)*0.01;
+   
+            
+        } else if (intensity>0){
+            intensity -= 0.01;
         }
         
-        // Set Intensity based on nearest living target only
-    //    float nearDist = current.distance(nearestPt);
-   //     targetIntensity = (maxDistance-nearDist)/maxDistance;
-        
-        float nearDist = current.distance(nearestLivingTarget->current);
-        targetIntensity = (maxDistance-nearDist)/maxDistance;
-        targetIntensity *= nearestLivingTarget->influence;
 
+        // Move
+        current.interpolate(moveTarget,0.01);
+        getPercent();
+        newStepperPosition = floor(ofMap(locationPercent, 0, 1, 0, STEPS_PER_TRACK));
+
+        trackedPoints.clear();
+        
+    } else { //if idle!
+        
+        if(bIsIdleHighlight){
+            
+            if(ofGetElapsedTimef()>endHighlightTime) bIsIdleHighlight= false;
+            targetIntensity = ofNoise(ofGetElapsedTimef()+(id*6.66))*ofNoise(ofGetElapsedTimef()+(id*6.66));
+            targetIntensity*=0.5;
+            //if(ofRandomf()>.5){ bIsIdleHighlight = false; }
+
+        } else {
+            targetIntensity = 0;
+            //if(ofRandomf()>.999){ bIsIdleHighlight = true; }
+        }
         //lerp intensity
         intensity += (targetIntensity-intensity)*0.01;
-    
-        
-        
-    } else if (intensity>0){
-        intensity -= 0.01;
     }
     
-
-    
-    // Move
-    current.interpolate(moveTarget,0.01);
-    getPercent();
-    newStepperPosition = floor(ofMap(locationPercent, 0, 1, 0, STEPS_PER_TRACK));
-    
-    if(current.distance(moveTarget) > 0.1 || intensity > 0.01){
+    // report if changed
+    if(current.distance(moveTarget) > 0.1 || intensity > 0.001){
         bChanged = true;
     } else{
     }
@@ -99,7 +120,7 @@ void Light::update(){
         //ofLogNotice()<<current.distance(moveTarget)<<endl;
     }
     
-    trackedPoints.clear();
+    
 }
 
 void Light::draw(){
@@ -112,8 +133,11 @@ void Light::draw(){
     track.draw();
     ofDrawBitmapString(ofToString(id), start.x+10, start.y);
 
+    ofSetColor(255,255,0);
+    ofDrawEllipse(current,11,11);
     ofSetColor(intensity*255);
     ofDrawEllipse(current,10,10);
+    
     
     
     ofPopStyle();

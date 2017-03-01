@@ -11,6 +11,7 @@
 void CvManager::setup(){
     grabber.setGrabber(std::make_shared<ofxPS3EyeGrabber>());
     grabber.setup(CAM_WIDTH,CAM_HEIGHT);
+    grabber.getGrabber<ofxPS3EyeGrabber>()->setAutogain(true);
     camFbo.allocate(CAM_WIDTH, CAM_HEIGHT);
     
     // Contour Tracker
@@ -29,7 +30,7 @@ void CvManager::setup(){
     gui.add(thresholdValue.set("BG Threshold Value", 10, 0, 255));
     gui.add(showLabels.set("Show Blob Labels", true));
     gui.add(minBlobSize.set("Min Blob Size", 10, 0, 255));
-    gui.add(maxBlobSize.set("Max Blob Size", 100, 0, 6000));
+    gui.add(maxBlobSize.set("Max Blob Size", 100, 0, 20000));
 
     
 }
@@ -53,6 +54,21 @@ void CvManager::update(){
     }
     contours.setMinArea(minBlobSize);
     contours.setMaxArea(maxBlobSize);
+    
+    
+    if(contours.getContours().size()>0){
+        idleTimer=0;
+        if(bIsIdle) ofLogNotice()<<"no longer idle!"<<endl;
+        bIsIdle = false;
+        
+    } else if(idleTimer>IDLE_TIMEOUT && !bIsIdle){
+        bIsIdle = true;
+        ofLogNotice()<<"Going Idle"<<endl;
+    } else if (!bIsIdle){
+        idleTimer++;
+        
+    } else{
+    }
 
     
 }

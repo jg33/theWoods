@@ -5,6 +5,8 @@ void ofApp::setup(){
     ofBackground(0);
     ofSetBackgroundAuto(true);
     
+    // Load XML
+    loadXML();
     
     //Osc setup
     osc.setup();
@@ -13,8 +15,7 @@ void ofApp::setup(){
     cvMan.setup();
     cvMan.gui.loadFromFile("settings.xml");
     
-    // Load XML
-    loadXML();
+
 
     
     //setup lights//
@@ -84,6 +85,33 @@ void ofApp::update(){
         }
         
     }
+    
+    //check idle status
+    if(cvMan.bIsIdle){
+        bool bIsOneOn = false;;
+        
+        for(int i=0;i<lights.size();i++){
+            lights[i].bIsIdle = true;
+            if(lights[i].bIsIdleHighlight) bIsOneOn = true;
+        }
+        
+        // make sure one is always on
+        if (!bIsOneOn){
+            int randoLightNum =floor(ofRandom(0,7));
+            lights[randoLightNum].bIsIdleHighlight= true;
+            lights[randoLightNum].endHighlightTime = ofGetElapsedTimef()+ ofRandom(10);
+            
+        }
+        
+    } else {
+        for(int i=0;i<lights.size();i++){
+            lights[i].bIsIdle = false;
+        }
+        
+    }
+    
+    
+    
     //update all targets
     for(int i=0;i<targets.size();i++){
         targets[i].update();

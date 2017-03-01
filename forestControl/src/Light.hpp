@@ -31,6 +31,7 @@ public:
         current = moveTarget;
         
         nearestPoint = &blankPoint;
+        intensity = 0;
     };
     void draw();
     void update();
@@ -65,6 +66,14 @@ public:
     void hitMin();
     void hitMax();
     
+    
+    //idle stuff
+    bool bIsIdle = false;
+    bool bIsIdleHighlight = false;
+    float endHighlightTime = 0;
+
+    
+    
 private:
     
     void jumpToStart();
@@ -81,12 +90,12 @@ private:
     
     bool bAtMin, bAtMax;
     bool bChanged;
-    bool bIsIdle;
     
     int newStepperPosition = 0;
     int previousStepperPosition =0;
     
     vector<Target*> trackedPoints;
+    
     
 };
 #endif /* Light_hpp */
