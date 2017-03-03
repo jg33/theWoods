@@ -47,6 +47,7 @@ void Light::update(){
                 // Calc Dist
                 float dist = current.distance(trackedPoints[i]->current);
                 float distInfluence = (maxDistance-dist)/maxDistance;
+                distInfluence = ofClamp(distInfluence, 0., 1.);
                 
                 distInfluence*=trackedPoints[i]->influence;
                 

@@ -29,7 +29,7 @@ bool isCalibrating = false;
 int calibrationPhase = 0;
 
 int debugCount = 0;
-AccelStepper motor(AccelStepper::FULL4WIRE,MOTOR_PIN_1, MOTOR_PIN_3,MOTOR_PIN_2,MOTOR_PIN_4) ;
+AccelStepper motor(8,MOTOR_PIN_1, MOTOR_PIN_3,MOTOR_PIN_2,MOTOR_PIN_4) ;
 
 
 void setup() {
@@ -44,7 +44,12 @@ void setup() {
   pinMode(MINBUTTON_PIN, INPUT);
   pinMode(MAXBUTTON_PIN, INPUT);
   
-  calibrate();
+  //motor setup
+  motor.setMaxSpeed(1000.0);
+  motor.setAcceleration(1000.0);
+  
+  
+  //calibrate();
   
 }
 
@@ -91,7 +96,7 @@ void loop() {
   }
   
   //check min / max status
-  getMinMaxStatus();
+  //getMinMaxStatus();
   
   //run motor a
   if(!atMin && !atMax){
@@ -123,14 +128,14 @@ void serialEventRun(void) {
 
 void serialEvent(){
   //get serial
-  Serial.println("got serial!");
+  Serial.println("/debug got serial!");
   while (Serial.available()){
     char inChar = (char)Serial.read();
     // add it to the inputString:
     serialInput += inChar;
     // if the incoming character is a newline, set a flag
     // so the main loop can do something about it:
-    if (inChar == '\n') {
+    if (inChar == '\n'|| inChar == '\r') {
       inputStringComplete = true;
     }
     
@@ -171,26 +176,39 @@ void calibrate(){
 
 /////
 void parseCommand(String msg){
-  Serial.println("parsing");
+  Serial.println("/debug parsing");
  
   char cmd = msg.charAt(0);
-  Serial.println(cmd);
+  Serial.println("/debug/command "+cmd);
+  
   if(cmd=='i'){ 
     //intensity
-    int val = msg.substring(2).toInt();
+    signed int val = msg.substring(1,msg.length()-1).toInt();
     intensity = val;
-    Serial.println("/debug/intensity "+val);
+    //Serial.println("/debug/intensity "+ String(val));
     
   } else if(cmd=='p'){ 
     //position
-     int val = msg.substring(2).toInt();
+     String stringVal = msg.substring(2, msg.length()-1);
+     //Serial.println("/debug "+stringVal);
+     
+     long val = stringVal.toInt();
+     //Serial.println("/debug "+ val);
+
      motor.moveTo(val);
-     Serial.println("/debug/position "+val);
+     Serial.println("/debug/position "+String(val));
      
   } else if(cmd=='x'){
     //identify
     identify();
     
+  } else if (cmd=='-'){
+    motor.move(-100);
+  } else if (cmd=='='){
+    motor.move(100);
+
+  } else if (cmd=='c'){
+    calibrate(); 
   }
 
 }
