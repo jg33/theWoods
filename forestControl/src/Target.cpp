@@ -10,7 +10,7 @@
 
 
 void Target::update(){
-    current.interpolate(target,0.01);
+    current.interpolate(target,0.05);
     
     if(bDying && influence <= 0.){
         label = -1; //unlabel
@@ -22,6 +22,8 @@ void Target::update(){
     if(!bDying && influence < 1){
         influence += 0.01;
     }
+    
+    influence = ofClamp(influence, 0, 1.);
     
     //ofLogNotice()<<label<<": "<<current<<endl;
     

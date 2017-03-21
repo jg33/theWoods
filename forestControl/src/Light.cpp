@@ -48,8 +48,10 @@ void Light::update(){
                 float dist = current.distance(trackedPoints[i]->current);
                 float distInfluence = (maxDistance-dist)/maxDistance;
                 distInfluence = ofClamp(distInfluence, 0., 1.);
+                if (distInfluence < 0.1) distInfluence = 0;
                 
                 distInfluence*=trackedPoints[i]->influence;
+                //ofLogNotice()<<trackedPoints[i]->influence<<endl;
                 
                 // Find nearest
                 if(dist< current.distance(nearestPt)){
@@ -85,7 +87,7 @@ void Light::update(){
         
 
         // Move
-        current.interpolate(moveTarget,0.01);
+        current.interpolate(moveTarget,0.001);
         getPercent();
         newStepperPosition = floor(ofMap(locationPercent, 0, 1, 0, STEPS_PER_TRACK));
 
@@ -133,7 +135,10 @@ void Light::draw(){
     ofDrawEllipse(end, 5,5);
     track.draw();
     ofDrawBitmapString(ofToString(id), start.x+10, start.y);
+    ofDrawBitmapString(ofToString(moveTarget), start.x+10, start.y+10);
 
+    
+    
     ofSetColor(255,255,0);
     ofDrawEllipse(current,11,11);
     ofSetColor(intensity*255);

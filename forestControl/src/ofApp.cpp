@@ -21,7 +21,7 @@ void ofApp::setup(){
     //setup lights//
     lights.push_back(Light(0,ofPoint(50,50),ofPoint(150,100)));
     
-    for(int i=0;i<7;i++){
+    for(int i=0;i<NUM_LIGHTS-1;i++){
         ofPoint randoPoint = ofPoint(ofRandom(200,ofGetWidth()-200), ofRandom(200,ofGetHeight()-200) );
         
         lights.push_back(Light(i+1,ofPoint(randoPoint.x-ofRandom(75),randoPoint.y-ofRandom(75)),ofPoint(randoPoint.x+ofRandom(75),randoPoint.y+ofRandom(75))));
@@ -31,7 +31,7 @@ void ofApp::setup(){
         lights[i].setOscPtr(&osc);
     }
     
-    for(int i=0;i<8;i++){
+    for(int i=0;i<NUM_TARGETS;i++){
         targets.push_back(ofPoint(0,0));
         
     }

@@ -16,7 +16,8 @@
 #define MINBUTTON_PIN 7
 #define MAXBUTTON_PIN 8
 
-int intensity = 0;
+float intensity = 0;
+float targetIntensity = 0;
 
 bool atMin = false;
 bool atMax = false;
@@ -35,7 +36,7 @@ AccelStepper motor(8,MOTOR_PIN_1, MOTOR_PIN_3,MOTOR_PIN_2,MOTOR_PIN_4) ;
 void setup() {
   //setup serial
   Serial.begin(115200);
-  Serial.println("Hello.");
+  //Serial.println("/Hello");
 
   serialInput.reserve(200);
   
@@ -45,7 +46,7 @@ void setup() {
   pinMode(MAXBUTTON_PIN, INPUT);
   
   //motor setup
-  motor.setMaxSpeed(1000.0);
+  motor.setMaxSpeed(1500.0);
   motor.setAcceleration(1000.0);
   
   
@@ -110,14 +111,31 @@ void loop() {
      sendMaxPos('a',maxSteps);
   }
   
+  //interpolate intensity
+  if(targetIntensity == intensity || abs(targetIntensity-intensity) < 0.01){
+    //don't move if equal
+  } else if(targetIntensity > intensity){
+    intensity+= 0.01;
+  } else if(targetIntensity< intensity){
+    intensity-= 0.01;
+  } else{
+     //do nothing 
+  }
+  //Serial.println((String)intensity + " "+ (String)targetIntensity);
+  
   //set brightness of light a
-  analogWrite(LIGHT_PIN, intensity);
-
+  if(intensity<1){
+    analogWrite(LIGHT_PIN, 0);
+  } else {
+    analogWrite(LIGHT_PIN, floor(intensity));
+  }
   //debugging;
   //String debugMsg = "/debug/this ";
   //debugMsg += debugCount;
- // Serial.println(debugMsg);
+ // //Serial.println(debugMsg);
  // debugCount++;
+ 
+ //delay(15);
 }
 
 
@@ -128,7 +146,7 @@ void serialEventRun(void) {
 
 void serialEvent(){
   //get serial
-  Serial.println("/debug got serial!");
+  //Serial.println("/debug received!");
   while (Serial.available()){
     char inChar = (char)Serial.read();
     // add it to the inputString:
@@ -150,7 +168,7 @@ void serialEvent(){
 void sendMaxPos(char motorID, int pos){
     String posMsg = "/maxPos ";
     posMsg+= debugCount;
-    Serial.println(posMsg);
+    //Serial.println(posMsg);
 }
 
 void getMinMaxStatus(){
@@ -176,39 +194,48 @@ void calibrate(){
 
 /////
 void parseCommand(String msg){
-  Serial.println("/debug parsing");
+  //Serial.println("/debug parsing");
  
   char cmd = msg.charAt(0);
-  Serial.println("/debug/command "+cmd);
+  //Serial.println("/debug/command "+cmd);
   
   if(cmd=='i'){ 
     //intensity
     signed int val = msg.substring(1,msg.length()-1).toInt();
-    intensity = val;
-    //Serial.println("/debug/intensity "+ String(val));
+    targetIntensity = val;
+    ////Serial.println("/debug/intensity "+ String(val));
     
   } else if(cmd=='p'){ 
     //position
      String stringVal = msg.substring(2, msg.length()-1);
-     //Serial.println("/debug "+stringVal);
+     ////Serial.println("/debug "+stringVal);
      
      long val = stringVal.toInt();
-     //Serial.println("/debug "+ val);
+     ////Serial.println("/debug "+ val);
 
      motor.moveTo(val);
-     Serial.println("/debug/position "+String(val));
+     //Serial.println("/debug/position "+String(val));
      
   } else if(cmd=='x'){
     //identify
     identify();
     
   } else if (cmd=='-'){
-    motor.move(-100);
+    String stringVal = msg.substring(2, msg.length()-1);
+    long val = stringVal.toInt();
+    motor.move(-val);
+    
   } else if (cmd=='='){
-    motor.move(100);
+    String stringVal = msg.substring(2, msg.length()-1);
+    long val = stringVal.toInt();
+    motor.move(val);
 
   } else if (cmd=='c'){
     calibrate(); 
+  } else if (cmd=='r'){
+    motor.setCurrentPosition(0);
+  } else if (cmd =='z'){
+     motor.stop(); 
   }
 
 }

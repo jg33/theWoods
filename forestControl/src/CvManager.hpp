@@ -14,6 +14,9 @@
 
 #define IDLE_TIMEOUT 100
 
+#define NUM_LIGHTS 4
+#define NUM_TARGETS 8
+
 #include <stdio.h>
 #include "ofMain.h"
 #include "ofxCv.h"

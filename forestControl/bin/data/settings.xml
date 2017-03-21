@@ -1,9 +1,9 @@
 <group>
 	<Reset_Background>0</Reset_Background>
 	<Learning_Time>30</Learning_Time>
-	<BG_Threshold_Value>132.6</BG_Threshold_Value>
+	<BG_Threshold_Value>48.45</BG_Threshold_Value>
 	<Show_Blob_Labels>1</Show_Blob_Labels>
-	<Min_Blob_Size>77.775</Min_Blob_Size>
-	<Max_Blob_Size>6000</Max_Blob_Size>
+	<Min_Blob_Size>1600</Min_Blob_Size>
+	<Max_Blob_Size>50000</Max_Blob_Size>
 <group/>
 </group>

@@ -59,7 +59,7 @@
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 62.0, 379.0, 50.0, 35.0 ],
 					"style" : "",
-					"text" : "p 35799"
+					"text" : "p 90006"
 				}
 
 			}
@@ -97,9 +97,9 @@
 					"numinlets" : 2,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 315.0, 435.0, 76.0, 35.0 ],
+					"patching_rect" : [ 315.0, 435.0, 34.0, 35.0 ],
 					"style" : "",
-					"text" : "i 229.208496"
+					"text" : "i 217"
 				}
 
 			}
@@ -123,9 +123,9 @@
 					"numinlets" : 2,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 315.0, 334.0, 49.0, 22.0 ],
+					"patching_rect" : [ 315.0, 334.0, 56.0, 22.0 ],
 					"style" : "",
-					"text" : "qlim 50"
+					"text" : "qlim 100"
 				}
 
 			}
@@ -139,44 +139,6 @@
 					"patching_rect" : [ 231.5, 343.0, 56.0, 22.0 ],
 					"style" : "",
 					"text" : "qlim 500"
-				}
-
-			}
-, 			{
-				"box" : 				{
-					"id" : "obj-14",
-					"maxclass" : "comment",
-					"numinlets" : 1,
-					"numoutlets" : 0,
-					"patching_rect" : [ 620.0, 265.0, 150.0, 20.0 ],
-					"style" : "",
-					"text" : "identify"
-				}
-
-			}
-, 			{
-				"box" : 				{
-					"comment" : "First Light",
-					"id" : "obj-8",
-					"maxclass" : "inlet",
-					"numinlets" : 0,
-					"numoutlets" : 1,
-					"outlettype" : [ "bang" ],
-					"patching_rect" : [ 583.5, 40.0, 30.0, 30.0 ],
-					"style" : ""
-				}
-
-			}
-, 			{
-				"box" : 				{
-					"id" : "obj-7",
-					"maxclass" : "message",
-					"numinlets" : 2,
-					"numoutlets" : 1,
-					"outlettype" : [ "" ],
-					"patching_rect" : [ 584.0, 264.0, 29.5, 22.0 ],
-					"style" : "",
-					"text" : "x"
 				}
 
 			}
@@ -551,24 +513,6 @@
 					"disabled" : 0,
 					"hidden" : 0,
 					"source" : [ "obj-43", 1 ]
-				}
-
-			}
-, 			{
-				"patchline" : 				{
-					"destination" : [ "obj-33", 0 ],
-					"disabled" : 0,
-					"hidden" : 0,
-					"source" : [ "obj-7", 0 ]
-				}
-
-			}
-, 			{
-				"patchline" : 				{
-					"destination" : [ "obj-7", 0 ],
-					"disabled" : 0,
-					"hidden" : 0,
-					"source" : [ "obj-8", 0 ]
 				}
 
 			}

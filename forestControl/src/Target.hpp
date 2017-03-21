@@ -23,7 +23,7 @@ public:
     }
     ofPoint current, target;
     int label = -1;
-    float influence =0.0001;
+    float influence = 0.0001;
     
     bool bDying=false;
     bool bReadyToDie=false;
