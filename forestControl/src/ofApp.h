@@ -3,6 +3,8 @@
 #include "ofMain.h"
 #include "ofxXmlSettings.h"
 
+#include "ofxGui.h"
+
 #include "Light.hpp"
 #include "Target.hpp"
 #include "OscHandler.hpp"
@@ -48,5 +50,10 @@ private:
     void moveLight(int lightIndex, StartEnd startEnd, ofPoint location);
     bool bIsDragging = false;
     lightTrackPoint nearestPoint;
-    
+    ofxPanel lightCtrlPanel;
+    ofParameter<float> light0Dist;
+    ofParameter<float> light1Dist;
+    ofParameter<float> light2Dist;
+    ofParameter<float> light3Dist;
+
 };

@@ -25,6 +25,8 @@
 #include "Util.h"
 #include "ofxPS3EyeGrabber.h"
 
+#include "OscHandler.hpp"
+
 using namespace ofxCv;
 using namespace cv;
 
@@ -46,6 +48,10 @@ public:
     int idleTimer = 0;
     bool bIsIdle = false;
     
+    void setOscHandler(OscHandler * _osc){
+        osc=_osc;
+    }
+    
 private:
     
     ofVideoGrabber grabber;
@@ -61,6 +67,9 @@ private:
     ofParameter<float> minBlobSize, maxBlobSize;
     
     ofFbo camFbo;
+    
+    OscHandler * osc;
+    
 };
 
 

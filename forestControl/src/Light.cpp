@@ -103,7 +103,7 @@ void Light::update(){
             //if(ofRandomf()>.5){ bIsIdleHighlight = false; }
 
         } else {
-            targetIntensity = 0;
+            targetIntensity = 0.005;
             //if(ofRandomf()>.999){ bIsIdleHighlight = true; }
         }
         //lerp intensity
@@ -130,6 +130,7 @@ void Light::draw(){
     
     ofPushStyle();
     
+    //track
     ofSetColor(255, 0, 0);
     ofDrawEllipse(start, 5, 5);
     ofDrawEllipse(end, 5,5);
@@ -138,12 +139,15 @@ void Light::draw(){
     ofDrawBitmapString(ofToString(moveTarget), start.x+10, start.y+10);
 
     
-    
+    //light
     ofSetColor(255,255,0);
     ofDrawEllipse(current,11,11);
     ofSetColor(intensity*255);
     ofDrawEllipse(current,10,10);
     
+    //range
+    ofSetColor(130, 130, 0,100);
+    ofDrawCircle(current, maxDistance);
     
     
     ofPopStyle();

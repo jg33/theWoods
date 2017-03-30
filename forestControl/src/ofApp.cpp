@@ -5,17 +5,27 @@ void ofApp::setup(){
     ofBackground(0);
     ofSetBackgroundAuto(true);
     
+    ofSetFrameRate(30);
+    
     // Load XML
     loadXML();
     
-    //Osc setup
+    // Osc setup
     osc.setup();
     
     // CV Setup
     cvMan.setup();
     cvMan.gui.loadFromFile("settings.xml");
-    
+    cvMan.setOscHandler(&osc);
 
+    
+    // GUI Setup
+    lightCtrlPanel.setup();
+    lightCtrlPanel.setPosition(10, 200);
+    lightCtrlPanel.add(light0Dist.set("Light 0 Max Distance", 300,100, 1000));
+    lightCtrlPanel.add(light1Dist.set("Light 1 Max Distance", 300,100, 1000));
+    lightCtrlPanel.add(light2Dist.set("Light 2 Max Distance", 300,100, 1000));
+    lightCtrlPanel.add(light3Dist.set("Light 3 Max Distance", 300,100, 1000));
 
     
     //setup lights//
@@ -35,6 +45,12 @@ void ofApp::setup(){
         targets.push_back(ofPoint(0,0));
         
     }
+    
+    
+    //special
+    
+    
+    
 
 }
 
@@ -46,6 +62,20 @@ void ofApp::update(){
     
     //cv
     cvMan.update();
+    
+    //gui
+    if (light0Dist != lights[0].maxDistance){
+        lights[0].maxDistance = light0Dist;
+    }
+    if (light1Dist != lights[1].maxDistance){
+        lights[1].maxDistance = light1Dist;
+    }
+    if (light2Dist != lights[2].maxDistance){
+        lights[2].maxDistance = light2Dist;
+    }
+    if (light3Dist != lights[3].maxDistance){
+        lights[3].maxDistance = light3Dist;
+    }
 
     // UPDATE TARGETS
     
@@ -154,7 +184,7 @@ void ofApp::draw(){
         
     }
     
-
+    lightCtrlPanel.draw();
 }
 
 //--------------------------------------------------------------
@@ -300,6 +330,9 @@ void ofApp::loadXML(){
             
             //ofLogNotice()<< "light:light_"+ofToString(i)+":"+"start"+":x= "<<_start.x<<endl;
             lights[i].setPoints(_start, _end);
+            lights[i].current = _start;
+            lights[i].moveTarget = _start;
+
             
         }
     } else{

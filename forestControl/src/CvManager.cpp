@@ -65,12 +65,17 @@ void CvManager::update(){
     // idle logic
     if(contours.getContours().size()>0){
         idleTimer=0;
-        if(bIsIdle) ofLogNotice()<<"no longer idle!"<<endl;
+        if(bIsIdle) {
+            osc->sendIntMsg("/idle",0);
+            ofLogNotice()<<"no longer idle!"<<endl;
+        }
+        
         bIsIdle = false;
         
     } else if(idleTimer>IDLE_TIMEOUT && !bIsIdle){
         bIsIdle = true;
         ofLogNotice()<<"Going Idle"<<endl;
+        osc->sendIntMsg("/idle",1);
     } else if (!bIsIdle){
         idleTimer++;
         
