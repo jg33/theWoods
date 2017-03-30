@@ -130,6 +130,11 @@ void Light::draw(){
     
     ofPushStyle();
     
+    //range
+    ofSetColor(130, 130, 0,100);
+    ofDrawCircle(current, maxDistance);
+    
+    
     //track
     ofSetColor(255, 0, 0);
     ofDrawEllipse(start, 5, 5);
@@ -144,12 +149,7 @@ void Light::draw(){
     ofDrawEllipse(current,11,11);
     ofSetColor(intensity*255);
     ofDrawEllipse(current,10,10);
-    
-    //range
-    ofSetColor(130, 130, 0,100);
-    ofDrawCircle(current, maxDistance);
-    
-    
+
     ofPopStyle();
     
     

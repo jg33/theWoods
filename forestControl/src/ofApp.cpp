@@ -26,7 +26,10 @@ void ofApp::setup(){
     lightCtrlPanel.add(light1Dist.set("Light 1 Max Distance", 300,100, 1000));
     lightCtrlPanel.add(light2Dist.set("Light 2 Max Distance", 300,100, 1000));
     lightCtrlPanel.add(light3Dist.set("Light 3 Max Distance", 300,100, 1000));
-
+    lightCtrlPanel.add(light4Dist.set("Light 4 Max Distance", 300,100, 1000));
+    lightCtrlPanel.add(light5Dist.set("Light 5 Max Distance", 300,100, 1000));
+    lightCtrlPanel.add(light6Dist.set("Light 6 Max Distance", 300,100, 1000));
+    lightCtrlPanel.add(light7Dist.set("Light 7 Max Distance", 300,100, 1000));
     
     //setup lights//
     lights.push_back(Light(0,ofPoint(50,50),ofPoint(150,100)));
@@ -75,6 +78,18 @@ void ofApp::update(){
     }
     if (light3Dist != lights[3].maxDistance){
         lights[3].maxDistance = light3Dist;
+    }
+    if (light4Dist != lights[4].maxDistance){
+        lights[4].maxDistance = light4Dist;
+    }
+    if (light5Dist != lights[5].maxDistance){
+        lights[5].maxDistance = light5Dist;
+    }
+    if (light6Dist != lights[6].maxDistance){
+        lights[6].maxDistance = light6Dist;
+    }
+    if (light7Dist != lights[7].maxDistance){
+        lights[7].maxDistance = light7Dist;
     }
 
     // UPDATE TARGETS

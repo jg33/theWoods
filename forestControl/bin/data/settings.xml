@@ -6,4 +6,12 @@
 	<Min_Blob_Size>1600</Min_Blob_Size>
 	<Max_Blob_Size>50000</Max_Blob_Size>
 <group/>
+<Light_0_Max_Distance>190</Light_0_Max_Distance>
+	<Light_1_Max_Distance>190</Light_1_Max_Distance>
+	<Light_2_Max_Distance>194.5</Light_2_Max_Distance>
+	<Light_3_Max_Distance>194.5</Light_3_Max_Distance>
+	<Light_4_Max_Distance>194.5</Light_4_Max_Distance>
+	<Light_5_Max_Distance>194.5</Light_5_Max_Distance>
+	<Light_6_Max_Distance>176.5</Light_6_Max_Distance>
+	<Light_7_Max_Distance>199</Light_7_Max_Distance>
 </group>

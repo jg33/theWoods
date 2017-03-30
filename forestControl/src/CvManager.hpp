@@ -14,7 +14,7 @@
 
 #define IDLE_TIMEOUT 100
 
-#define NUM_LIGHTS 4
+#define NUM_LIGHTS 8
 #define NUM_TARGETS 8
 
 #include <stdio.h>

@@ -55,5 +55,10 @@ private:
     ofParameter<float> light1Dist;
     ofParameter<float> light2Dist;
     ofParameter<float> light3Dist;
+    ofParameter<float> light4Dist;
+    ofParameter<float> light5Dist;
+    ofParameter<float> light6Dist;
+    ofParameter<float> light7Dist;
+
 
 };
