@@ -21,7 +21,7 @@ public:
     Target(ofPoint _p){
         current = _p;
     }
-    ofPoint current, target;
+    ofPoint current, target, previous;
     int label = -1;
     float influence = 0.0001;
     
@@ -30,6 +30,12 @@ public:
     
     void update();
     void draw();
+    
+    bool bIsQuiet = false;
+    float quietMoveThreshold = 10;
+    int quietTimeThreshold = 30;
+    int quietTimer = 0;
+    
 };
 
 

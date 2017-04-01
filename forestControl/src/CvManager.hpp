@@ -30,6 +30,8 @@
 using namespace ofxCv;
 using namespace cv;
 
+
+
 class CvManager{
 public:
     CvManager(){};

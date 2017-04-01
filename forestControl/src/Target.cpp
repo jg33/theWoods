@@ -10,6 +10,7 @@
 
 
 void Target::update(){
+    previous = current;
     current.interpolate(target,0.05);
     
     if(bDying && influence <= 0.){
@@ -24,6 +25,19 @@ void Target::update(){
     }
     
     influence = ofClamp(influence, 0, 1.);
+    
+    
+    
+    if(quietTimer>quietTimeThreshold && !bDying){
+        bIsQuiet = true;
+        
+    } else if(previous.distance(current)>quietMoveThreshold  && !bDying){
+        //if there's movement above the threshold, reset timer
+        quietTimer=0;
+        bIsQuiet = false;
+    } else{
+        quietTimer++;
+    }
     
     //ofLogNotice()<<label<<": "<<current<<endl;
     

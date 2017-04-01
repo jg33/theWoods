@@ -33,82 +33,91 @@ void Light::react(Target *_target){
 
 void Light::update(){
     
-    
-    if(!bIsIdle){ // if not idle!
-    
-        if(trackedPoints.size()>0){
-            Target* nearestTarget = trackedPoints[0];
-            Target* nearestLivingTarget = trackedPoints[0];
-            ofPoint nearestPt = nearestTarget->current;
-            float distanceSum =0;
+    switch(currentMode){
             
-            for(int i=0;i<trackedPoints.size();i++){
+        case NORMAL: // if not idle!
                 
-                // Calc Dist
-                float dist = current.distance(trackedPoints[i]->current);
-                float distInfluence = (maxDistance-dist)/maxDistance;
-                distInfluence = ofClamp(distInfluence, 0., 1.);
-                if (distInfluence < 0.1) distInfluence = 0;
-                
-                distInfluence*=trackedPoints[i]->influence;
-                //ofLogNotice()<<trackedPoints[i]->influence<<endl;
-                
-                // Find nearest
-                if(dist< current.distance(nearestPt)){
-                    nearestTarget = trackedPoints[i];
-                    nearestPt = nearestTarget->current;
-                    if(!nearestTarget->bDying){
-                        nearestLivingTarget = nearestTarget;
+                if(trackedPoints.size()>0){
+                    Target* nearestTarget = trackedPoints[0];
+                    Target* nearestLivingTarget = trackedPoints[0];
+                    ofPoint nearestPt = nearestTarget->current;
+                    float distanceSum =0;
+                    
+                    for(int i=0;i<trackedPoints.size();i++){
+                        
+                        // Calc Dist
+                        float dist = current.distance(trackedPoints[i]->current);
+                        float distInfluence = (maxDistance-dist)/maxDistance;
+                        distInfluence = ofClamp(distInfluence, 0., 1.);
+                        if (distInfluence < 0.1) distInfluence = 0;
+                        
+                        distInfluence*=trackedPoints[i]->influence;
+                        //ofLogNotice()<<trackedPoints[i]->influence<<endl;
+                        
+                        // Find nearest
+                        if(dist< current.distance(nearestPt)){
+                            nearestTarget = trackedPoints[i];
+                            nearestPt = nearestTarget->current;
+                            if(!nearestTarget->bDying){
+                                nearestLivingTarget = nearestTarget;
+                            }
+                        }
+                        
+                        
+                        ofPoint tempTarget = track.getClosestPoint(trackedPoints[i]->current);
+                        moveTarget.interpolate(tempTarget,distInfluence);
+                        
+                        distanceSum += dist;
                     }
+                    
+                    // Set Intensity based on nearest living target only
+                    //    float nearDist = current.distance(nearestPt);
+                    //     targetIntensity = (maxDistance-nearDist)/maxDistance;
+                    
+                    float nearDist = current.distance(nearestLivingTarget->current);
+                    targetIntensity = (maxDistance-nearDist)/maxDistance;
+                    targetIntensity *= nearestLivingTarget->influence;
+                    
+                    //lerp intensity
+                    intensity += (targetIntensity-intensity)*0.01;
+                    
+                    
+                } else if (intensity>0){
+                    intensity -= 0.01;
                 }
                 
                 
-                ofPoint tempTarget = track.getClosestPoint(trackedPoints[i]->current);
-                moveTarget.interpolate(tempTarget,distInfluence);
+                // Move
+                current.interpolate(moveTarget,0.001);
+                getPercent();
+                newStepperPosition = floor(ofMap(locationPercent, 0, 1, 0, STEPS_PER_TRACK));
                 
-                distanceSum += dist;
-            }
+                trackedPoints.clear();
+            break;
+        case IDLE: //if idle!
+                
+                if(bIsIdleHighlight){
+                    
+                    if(ofGetElapsedTimef()>endHighlightTime) bIsIdleHighlight= false;
+                    targetIntensity = ofNoise(ofGetElapsedTimef()+(id*6.66))*ofNoise(ofGetElapsedTimef()+(id*6.66));
+                    targetIntensity*=0.5;
+                    //if(ofRandomf()>.5){ bIsIdleHighlight = false; }
+                    
+                } else {
+                    targetIntensity = 0.005;
+                    //if(ofRandomf()>.999){ bIsIdleHighlight = true; }
+                }
+                //lerp intensity
+                intensity += (targetIntensity-intensity)*0.01;
+            break;
             
-            // Set Intensity based on nearest living target only
-            //    float nearDist = current.distance(nearestPt);
-            //     targetIntensity = (maxDistance-nearDist)/maxDistance;
-            
-            float nearDist = current.distance(nearestLivingTarget->current);
-            targetIntensity = (maxDistance-nearDist)/maxDistance;
-            targetIntensity *= nearestLivingTarget->influence;
-            
-            //lerp intensity
-            intensity += (targetIntensity-intensity)*0.01;
-   
-            
-        } else if (intensity>0){
-            intensity -= 0.01;
-        }
-        
+        default:
+            break;
 
-        // Move
-        current.interpolate(moveTarget,0.001);
-        getPercent();
-        newStepperPosition = floor(ofMap(locationPercent, 0, 1, 0, STEPS_PER_TRACK));
-
-        trackedPoints.clear();
-        
-    } else { //if idle!
-        
-        if(bIsIdleHighlight){
             
-            if(ofGetElapsedTimef()>endHighlightTime) bIsIdleHighlight= false;
-            targetIntensity = ofNoise(ofGetElapsedTimef()+(id*6.66))*ofNoise(ofGetElapsedTimef()+(id*6.66));
-            targetIntensity*=0.5;
-            //if(ofRandomf()>.5){ bIsIdleHighlight = false; }
-
-        } else {
-            targetIntensity = 0.005;
-            //if(ofRandomf()>.999){ bIsIdleHighlight = true; }
-        }
-        //lerp intensity
-        intensity += (targetIntensity-intensity)*0.01;
     }
+    
+    
     
     // report if changed
     if(current.distance(moveTarget) > 0.1 || intensity > 0.001){

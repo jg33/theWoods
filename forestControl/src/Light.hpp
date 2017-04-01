@@ -17,6 +17,14 @@
 #include "OscHandler.hpp"
 #include "Target.hpp"
 
+enum LightMode{
+    NORMAL,
+    IDLE,
+    DARK,
+    NIGHT,
+    QUIET
+};
+
 class Light{
     
     
@@ -67,7 +75,9 @@ public:
     void hitMax();
     
     
-    //idle stuff
+    //mode stuff
+    LightMode currentMode = NORMAL;
+    LightMode previousMode = currentMode;
     bool bIsIdle = false;
     bool bIsIdleHighlight = false;
     float endHighlightTime = 0;

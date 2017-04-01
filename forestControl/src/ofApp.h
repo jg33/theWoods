@@ -11,6 +11,14 @@
 #include "CvManager.hpp"
 #include "Util.h"
 
+enum WoodsState{
+    WOODS_NORMAL,
+    WOODS_IDLE,
+    WOODS_QUIET,
+    WOODS_NIGHT,
+    WOODS_DARK
+};
+
 class ofApp : public ofBaseApp{
 
 	public:
@@ -38,6 +46,8 @@ private:
     //Light light0;
     
     vector<Light> lights;
+    
+    WoodsState mode = WOODS_NORMAL;
     
     OscHandler osc;
     CvManager cvMan;

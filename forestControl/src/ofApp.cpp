@@ -131,37 +131,81 @@ void ofApp::update(){
         
     }
     
-    //check idle status
-    if(cvMan.bIsIdle){
-        bool bIsOneOn = false;;
-        
-        for(int i=0;i<lights.size();i++){
-            lights[i].bIsIdle = true;
-            if(lights[i].bIsIdleHighlight) bIsOneOn = true;
-        }
-        
-        // make sure one is always on
-        if (!bIsOneOn){
-            int randoLightNum =floor(ofRandom(0,7));
-            lights[randoLightNum].bIsIdleHighlight= true;
-            lights[randoLightNum].endHighlightTime = ofGetElapsedTimef()+ ofRandom(10);
-            
-        }
-        
-    } else {
-        for(int i=0;i<lights.size();i++){
-            lights[i].bIsIdle = false;
-        }
-        
-    }
+
     
     
-    
-    //update all targets
+    // update all targets
+    bool allQuiet= true;
     for(int i=0;i<targets.size();i++){
         targets[i].update();
-        
+        if(!targets[i].bIsQuiet){
+            allQuiet = false;
+        }
     }
+    
+    
+    //check idle status
+    if(cvMan.bIsIdle){
+        mode = WOODS_IDLE;
+    }
+    bool bIsOneOn = false; // for checking highlight status. gotta keep it out of switch.
+
+    
+    
+    // quiet logic
+    if(allQuiet && mode != WOODS_IDLE){
+        if(mode != WOODS_QUIET){
+            osc.sendIntMsg("/quiet", 1);
+            ofLogNotice()<<"going quiet"<<endl;
+            mode = WOODS_QUIET;
+        }
+        
+    } else if(!allQuiet && mode == WOODS_QUIET){
+        if(mode != WOODS_NORMAL){
+            osc.sendIntMsg("/quiet", 0);
+            ofLogNotice()<<"going unquiet"<<endl;
+            mode = WOODS_NORMAL;
+        }
+    }
+    
+    // mode switching
+    switch (mode){
+        case WOODS_NORMAL:
+            for(int i=0;i<lights.size();i++){
+                lights[i].currentMode = NORMAL;
+            }
+            break;
+        case WOODS_IDLE:
+            
+            for(int i=0;i<lights.size();i++){
+                lights[i].currentMode = IDLE;
+                if(lights[i].bIsIdleHighlight) bIsOneOn = true;
+            }
+          
+            // make sure one is always on
+            if (!bIsOneOn){
+                int randoLightNum =floor(ofRandom(0,7));
+                lights[randoLightNum].bIsIdleHighlight= true;
+                lights[randoLightNum].endHighlightTime = ofGetElapsedTimef()+ ofRandom(10);
+                
+            }
+            break;
+            
+        case WOODS_QUIET:
+            for(int i=0;i<lights.size();i++){
+                lights[i].currentMode = NORMAL;
+            }
+            
+            break;
+            
+        default:
+            ofLogError()<<"OUTSIDE OF MODE"<<endl;
+            break;
+            
+            
+            
+    }
+    
     
     // UPDATE LIGHTS
     for(int i=0;i<lights.size();i++){
