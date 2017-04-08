@@ -120,9 +120,9 @@
 					"maxclass" : "newobj",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 181.90625, 237.0, 160.0, 22.0 ],
+					"patching_rect" : [ 181.90625, 237.0, 167.0, 22.0 ],
 					"style" : "",
-					"text" : "udpsend 192.168.0.27 8888"
+					"text" : "udpsend 192.168.0.101 8888"
 				}
 
 			}
@@ -375,13 +375,7 @@
 				}
 
 			}
- ],
-		"dependency_cache" : [ 			{
-				"name" : "OSC-route.mxo",
-				"type" : "iLaX"
-			}
- ],
-		"autosave" : 0
+ ]
 	}
 
 }

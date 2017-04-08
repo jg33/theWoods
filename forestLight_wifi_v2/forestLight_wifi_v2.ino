@@ -18,8 +18,8 @@
 #include <MultiStepper.h>
 
 
-char ssid[] = "THELIGHTHOUSE2";          // your network SSID (name)
-char pass[] = "olieclipse";                    // your network password
+char ssid[] = "The Woods";          // your network SSID (name)
+char pass[] = "d33pd4rk";                    // your network password
 
 // A UDP instance to let us send and receive packets over UDP
 WiFiUDP Udp;
@@ -28,7 +28,7 @@ const unsigned int outPort = 9999;          // remote port (not needed for recei
 const unsigned int localPort = 8888;        // local port to listen for UDP packets (here's where we send the packets)
 
 // Update these with values suitable for your network.
-IPAddress ip(192,168,0,28);  //Node static IP
+IPAddress ip(192,168,0,103);  //Node static IP
 IPAddress gateway(192,168,0,1);
 IPAddress subnet(255,255,255,0);
 
