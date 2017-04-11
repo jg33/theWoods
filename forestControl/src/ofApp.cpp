@@ -174,6 +174,8 @@ void ofApp::update(){
             for(int i=0;i<lights.size();i++){
                 lights[i].currentMode = NORMAL;
             }
+            quietLight.targetIntensity = 0;
+
             break;
         case WOODS_IDLE:
             
@@ -189,13 +191,16 @@ void ofApp::update(){
                 lights[randoLightNum].endHighlightTime = ofGetElapsedTimef()+ ofRandom(10);
                 
             }
+            quietLight.targetIntensity = 0;
+
             break;
             
         case WOODS_QUIET:
             for(int i=0;i<lights.size();i++){
                 lights[i].currentMode = NORMAL;
             }
-            
+            quietLight.targetIntensity = ofMap(ofNoise(ofGetElapsedTimef()),0,1,.5,1);
+
             break;
             
         default:
@@ -222,6 +227,9 @@ void ofApp::update(){
         
     }
     
+    
+    // quiet light
+    quietLight.update();
 
 }
 
@@ -242,6 +250,8 @@ void ofApp::draw(){
         lights[i].draw();
         
     }
+    
+    quietLight.draw();
     
     lightCtrlPanel.draw();
 }

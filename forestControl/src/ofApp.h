@@ -10,6 +10,7 @@
 #include "OscHandler.hpp"
 #include "CvManager.hpp"
 #include "Util.h"
+#include "EtcLight.hpp"
 
 enum WoodsState{
     WOODS_NORMAL,
@@ -55,6 +56,9 @@ private:
     void saveXML();
     void loadXML();
     
+    // MORE LIGHTS
+    EtcLight quietLight= EtcLight(&osc,0);
+    
     // UI
     lightTrackPoint getNearestPoint(int _x, int _y);
     void moveLight(int lightIndex, StartEnd startEnd, ofPoint location);
@@ -70,5 +74,6 @@ private:
     ofParameter<float> light6Dist;
     ofParameter<float> light7Dist;
 
+    
 
 };
