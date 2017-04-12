@@ -147,6 +147,12 @@ void ofApp::update(){
     //check idle status
     if(cvMan.bIsIdle){
         mode = WOODS_IDLE;
+    } else if (!cvMan.bIsIdle && !allQuiet && mode != WOODS_NORMAL){
+        osc.sendIntMsg("/idle", 0);
+        ofLogNotice()<<"not quiet, not idle. going back to normal"<<endl;
+        mode = WOODS_NORMAL;
+        
+        
     }
     bool bIsOneOn = false; // for checking highlight status. gotta keep it out of switch.
 
@@ -197,10 +203,10 @@ void ofApp::update(){
             
         case WOODS_QUIET:
             for(int i=0;i<lights.size();i++){
-                lights[i].currentMode = NORMAL;
+                lights[i].currentMode = QUIET;
             }
             quietLight.targetIntensity = ofMap(ofNoise(ofGetElapsedTimef()),0,1,.5,1);
-
+            ofLogNotice()<<"app is quiet"<<endl;
             break;
             
         default:

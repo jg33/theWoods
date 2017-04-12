@@ -28,7 +28,7 @@ void Target::update(){
     
     
     
-    if(quietTimer>quietTimeThreshold && !bDying){
+    if(quietTimer>quietTimeThreshold){
         bIsQuiet = true;
         
     } else if(previous.distance(current)>quietMoveThreshold  && !bDying){

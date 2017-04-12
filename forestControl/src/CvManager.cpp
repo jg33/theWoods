@@ -9,11 +9,14 @@
 #include "CvManager.hpp"
 
 void CvManager::setup(){
-    grabber.setGrabber(std::make_shared<ofxPS3EyeGrabber>());
-    grabber.setup(CAM_WIDTH,CAM_HEIGHT);
-    //grabber.setDesiredFrameRate(60);
-    grabber.getGrabber<ofxPS3EyeGrabber>()->setAutogain(false);
-    grabber.getGrabber<ofxPS3EyeGrabber>()->setGain(2550);
+    
+    if(!bSyphonInput){
+        grabber.setGrabber(std::make_shared<ofxPS3EyeGrabber>());
+        grabber.setup(CAM_WIDTH,CAM_HEIGHT);
+        //grabber.setDesiredFrameRate(60);
+        grabber.getGrabber<ofxPS3EyeGrabber>()->setAutogain(false);
+        grabber.getGrabber<ofxPS3EyeGrabber>()->setGain(2550);
+    }
 
     camFbo.allocate(CAM_WIDTH, CAM_HEIGHT);
     
@@ -36,6 +39,15 @@ void CvManager::setup(){
     gui.add(maxBlobSize.set("Max Blob Size", 100, 0, 50000));
 
     
+    // syphon
+    if(bSyphonInput){
+        syphonFbo.allocate(CAM_WIDTH,CAM_HEIGHT, GL_RGB);
+        syphonPix.allocate(CAM_WIDTH, CAM_HEIGHT, 3);
+        syphonCam.setup();
+        syphonCam.setApplicationName("eyeSyphon");
+        syphonCam.setServerName("eyeSyphon");
+    }
+    
 }
 
 void CvManager::update(){
@@ -46,13 +58,20 @@ void CvManager::update(){
         background.reset();
         resetBackground = false;
     }
-    if(grabber.isFrameNew()) {
+    
+    if(grabber.isFrameNew() || bSyphonInput) {
         //background.setLearningTime(learningTime);
         
         //ignore flickers?
         
+        if(bSyphonInput){
+            background.update(syphonPix, thresholded);
+
+        } else {
+            background.update(grabber, thresholded);
+        }
         background.setThresholdValue(thresholdValue);
-        background.update(grabber, thresholded);
+        
         thresholded.update();
         dilate(thresholded,5);
         blur(thresholded,10);
@@ -86,6 +105,20 @@ void CvManager::update(){
 }
 
 void CvManager::draw(){
+    
+    //syphon input//
+    if(bSyphonInput){
+        syphonFbo.begin();
+        ofClear(0,255);
+        ofPushStyle();
+        ofSetColor(255);
+        syphonCam.draw(0,0);
+        ofPopStyle();
+        syphonFbo.end();
+        
+        syphonFbo.getTextureReference().readToPixels(syphonPix);
+    }
+    
     
     camFbo.begin();
     if(bDebug){

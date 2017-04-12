@@ -12,7 +12,7 @@
 #define CAM_WIDTH 640
 #define CAM_HEIGHT 480
 
-#define IDLE_TIMEOUT 100
+#define IDLE_TIMEOUT 500
 
 #define NUM_LIGHTS 8
 #define NUM_TARGETS 8
@@ -24,6 +24,7 @@
 
 #include "Util.h"
 #include "ofxPS3EyeGrabber.h"
+#include "ofxSyphon.h"
 
 #include "OscHandler.hpp"
 
@@ -69,6 +70,11 @@ private:
     ofParameter<float> minBlobSize, maxBlobSize;
     
     ofFbo camFbo;
+    
+    bool bSyphonInput= true;
+    ofFbo syphonFbo;
+    ofxSyphonClient syphonCam;
+    ofPixels syphonPix;
     
     OscHandler * osc;
     

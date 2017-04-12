@@ -93,9 +93,11 @@ void Light::update(){
                 newStepperPosition = floor(ofMap(locationPercent, 0, 1, 0, STEPS_PER_TRACK));
                 
                 trackedPoints.clear();
+                ofLogNotice()<<"normal"<<endl;
             break;
         case IDLE: //if idle!
-                
+            ofLogNotice()<<"idle"<<endl;
+
                 if(bIsIdleHighlight){
                     
                     if(ofGetElapsedTimef()>endHighlightTime) bIsIdleHighlight= false;
@@ -109,6 +111,18 @@ void Light::update(){
                 }
                 //lerp intensity
                 intensity += (targetIntensity-intensity)*0.01;
+            break;
+            
+        case QUIET:
+            //targetIntensity = 0.005;
+            if(ofGetElapsedTimef()>endHighlightTime) bIsIdleHighlight= false;
+            targetIntensity = ofNoise(ofGetElapsedTimef()+(id*6.66))*ofNoise(ofGetElapsedTimef()+(id*6.66));
+            targetIntensity*=0.5;
+            
+            
+            //lerp intensity
+            intensity += (targetIntensity-intensity)*0.01;
+            ofLogNotice()<<"quiet."<<endl;
             break;
             
         default:
@@ -132,7 +146,7 @@ void Light::update(){
         //ofLogNotice()<<current.distance(moveTarget)<<endl;
     }
     
-    
+    //ofLogNotice()<<"updated "<<ofToString(id)<<endl;
 }
 
 void Light::draw(){

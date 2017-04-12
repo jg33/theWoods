@@ -32,8 +32,8 @@ public:
     void draw();
     
     bool bIsQuiet = false;
-    float quietMoveThreshold = 10;
-    int quietTimeThreshold = 30;
+    float quietMoveThreshold = 20;
+    int quietTimeThreshold = 300;
     int quietTimer = 0;
     
 };
