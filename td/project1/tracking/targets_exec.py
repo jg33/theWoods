@@ -32,37 +32,67 @@ def _set_targets(scriptOp, targets, idle_timer):
     scriptOp.store("idleTimer", idle_timer)
 
 
+def _parse_blob_tracks(inp, targets, target_logic_mod):
+    # Real Blob Track CHOP emits single-sample channels named per track:
+    #   blob1:tx, blob1:ty, blob1:w, blob1:h, blob1:age, ...
+    # Each prefix (e.g. 'blob1') is one tracked blob. Return seen label ids and
+    # updated targets; logs an error if no tx/ty pairs found.
+    seen_labels = set()
+    if inp is None or target_logic_mod is None:
+        return seen_labels, targets
+
+    chan_names = [c.name for c in inp.chans()]
+    tx_names = [n for n in chan_names if n.endswith(":tx")]
+    prefixes = sorted(set(n[:-3] for n in tx_names))
+
+    if not prefixes:
+        # No recognizable blob channels — this should be noisy, not silent.
+        return None, targets
+
+    for prefix in prefixes:
+        tx_name = prefix + ":tx"
+        ty_name = prefix + ":ty"
+        if ty_name not in chan_names:
+            continue
+
+        tx_chan = inp[tx_name]
+        ty_chan = inp[ty_name]
+        # Per-track channels are single-sample in the real Blob Track CHOP.
+        if tx_chan.numSamples < 1 or ty_chan.numSamples < 1:
+            continue
+
+        # Derive a stable integer label from the prefix. Blob Track prefixes
+        # are typically 'blob1', 'blob2', ... but we fall back to a hash if the
+        # numeric suffix is missing.
+        suffix = prefix[len("blob"):] if prefix.startswith("blob") else ""
+        try:
+            label = int(suffix)
+        except ValueError:
+            label = hash(prefix) & 0x7FFFFFFF
+
+        x = float(tx_chan[0])
+        y = float(ty_chan[0])
+        seen_labels.add(label)
+
+        if label not in targets:
+            targets[label] = {
+                "current": [x, y],
+                "influence": 0.0001,
+                "quiet_timer": 0,
+                "dying": False,
+            }
+
+        targets[label] = target_logic_mod.update_target(targets[label], x, y, True)
+
+    return seen_labels, targets
+
+
 def onCook(scriptOp):
     targets, idle_timer = _get_targets(scriptOp)
 
-    # Blob Track CHOP input channels: blobid, tx, ty (one sample per blob).
     inputs = scriptOp.inputs
-    seen_labels = set()
-    if inputs and target_logic is not None:
-        inp = inputs[0]
-        chan_names = [c.name for c in inp.chans()]
-        blobid = inp["blobid"] if "blobid" in chan_names else None
-        tx = inp["tx"] if "tx" in chan_names else None
-        ty = inp["ty"] if "ty" in chan_names else None
-
-        if blobid is not None and tx is not None and ty is not None:
-            for i in range(inp.numSamples):
-                label = int(blobid[i])
-                x = float(tx[i])
-                y = float(ty[i])
-                seen_labels.add(label)
-
-                if label not in targets:
-                    targets[label] = {
-                        "current": [x, y],
-                        "influence": 0.0001,
-                        "quiet_timer": 0,
-                        "dying": False,
-                    }
-
-                targets[label] = target_logic.update_target(
-                    targets[label], x, y, True
-                )
+    inp = inputs[0] if inputs else None
+    seen_labels, targets = _parse_blob_tracks(inp, targets, target_logic)
 
     # Update unseen targets; collect labels ready to die.
     to_remove = []
@@ -77,11 +107,9 @@ def onCook(scriptOp):
         del targets[label]
 
     # Idle logic
-    if len(seen_labels) == 0:
+    if seen_labels is not None and len(seen_labels) == 0:
         idle_timer += 1
     else:
-        if idle_timer > IDLE_TIMEOUT:
-            pass  # leaving idle
         idle_timer = 0
 
     bIsIdle = 1 if idle_timer > IDLE_TIMEOUT else 0
@@ -92,6 +120,14 @@ def onCook(scriptOp):
     scriptOp.rate = me.time.rate if hasattr(me, "time") else 60
     scriptOp.numSamples = 1
     scriptOp.appendChan("bIsIdle")[0] = bIsIdle
+    # Loud failure path: if the input had no recognizable blob channels,
+    # emit an error channel and log it so the operator does not die silently.
+    if seen_labels is None:
+        scriptOp.appendChan("error")[0] = 1
+        if hasattr(ui, "status"):
+            ui.status = "targets_exec: no blob:tx/blob:ty channels found"
+    else:
+        scriptOp.appendChan("error")[0] = 0
 
     # Update targets Table DAT: label, x, y, influence, quiet, dying
     targets_dat = op("../targets") if op else None

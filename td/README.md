@@ -50,14 +50,15 @@ Inside `/project1/tracking` (a Base COMP), build this network to replicate the O
    - Pre-dilate `1`
    - Blur `1` or small radius
    - Output RGBA so blobs remain bright
-3. `threshold1` output → `blobtrack1` **Blob Track TOP** (NOT Blob Track CHOP; it emits `blobid`, `u`, `v`, etc. channels via a CHOP-out style TOP) and then wire the TOP's CHOP output into a **CHOP to DAT** named `blobtable`, OR use a **Blob Track CHOP** after converting to `tx`/`ty` points.
-
-   Simpler path using a **Blob Track CHOP**:
-   - Add a `noise1` or `pattern1` generating `tx`/`ty` is not needed for real blobs.
-   - Better: use **Blob Track TOP** → **CHOP to DAT** `blobtable` (columns: `id`, `u`, `v`, `width`, `height`, `age`).
-   - Then a **DAT to CHOP** `blobchop` selecting `id` as first column, rename `id`→`blobid`, `u`→`tx`, `v`→`ty` and feed that into `targetscook`.
-
-   For the most direct construction, place a **Blob Track CHOP** named `blobtrack1` that expects `tx`/`ty` input. If using the Blob Track TOP path, map its CHOP channels to `tx`/`ty` before this step.
+3. `threshold1` output → `blobtrack1` **Blob Track CHOP**:
+   - Input: `threshold1` TOP output (RGBA, bright blobs on dark background).
+   - The CHOP will find blobs and output per-blob channels with a *per-track prefix*:
+     `blob1:tx`, `blob1:ty`, `blob1:w`, `blob1:h`, `blob1:age`,
+     `blob2:tx`, `blob2:ty`, ...
+   - `targets_exec.py` reads those per-track `*:tx` and `*:ty` channels and uses the prefix (`blob1`, `blob2`, ...) as the target label.
+   - Set **Max Blobs** to `8` (matches `NUM_LIGHTS`/`NUM_TARGETS`).
+   - Set **Max Blob Movement** to `100` pixels.
+   - Set **Lost Blob Timeout (s)** to `1` (≈ 1000 ms, tune per show).
 4. `blobtrack1` → `targetscook` **Script CHOP**:
    - Parameter: **Callbacks DAT** → the sibling Text DAT `targets_exec.py`
    - Parameter: **Cook Type** → `Python`
