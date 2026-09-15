@@ -156,18 +156,22 @@ void loop() {
 //  }
   
   //check min / max status
-  //getMinMaxStatus();
-  
+  getMinMaxStatus();
+
   //run motor a
-  if(!atMin && !atMax){
-     motor.run();
-  } else if (atMin){
+  long toGo = motor.distanceToGo();
+  bool movingTowardMin = (toGo < 0);
+  bool movingTowardMax = (toGo > 0);
+
+  if (atMin && movingTowardMin) {
      motor.stop();
      motor.setCurrentPosition(0);
-  } else if (atMax){
+  } else if (atMax && movingTowardMax) {
      motor.stop();
      maxSteps = motor.currentPosition();
-     sendMaxPos('a',maxSteps);
+     sendMaxPos('a', maxSteps);
+  } else {
+     motor.run();
   }
   
   //interpolate intensity
