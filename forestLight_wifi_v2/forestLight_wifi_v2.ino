@@ -45,8 +45,8 @@ char packetBuffer[128]; //buffer to hold incoming packet,
 #define MINBUTTON_PIN D7
 #define MAXBUTTON_PIN D8
 
-float intensity = 0;
-float targetIntensity = 0;
+int intensity = 0;
+int targetIntensity = 0;
 
 bool atMin = false;
 bool atMax = false;
@@ -175,23 +175,12 @@ void loop() {
   }
   
   //interpolate intensity
-  if(targetIntensity == intensity || abs(targetIntensity-intensity) < 0.01){
-    //don't move if equal
-  } else if(targetIntensity > intensity){
-    intensity+= 0.01;
-  } else if(targetIntensity< intensity){
-    intensity-= 0.01;
-  } else{
-     //do nothing 
-  }
+  if (intensity < targetIntensity) intensity++;
+  else if (intensity > targetIntensity) intensity--;
   //Serial.println((String)intensity + " "+ (String)targetIntensity);
-  
+
   //set brightness of light a
-  if(intensity<1){
-    analogWrite(LIGHT_PIN, 0);
-  } else {
-    analogWrite(LIGHT_PIN, floor(intensity));
-  }
+  analogWrite(LIGHT_PIN, intensity);
 
   //debugging;
   //String debugMsg = "/debug/this ";
