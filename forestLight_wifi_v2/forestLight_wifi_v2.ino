@@ -285,9 +285,12 @@ void calibrate(){
 ///////
 
 void sendMaxPos(char motorID, int pos){
-    String posMsg = "/maxPos ";
-    posMsg+= debugCount;
-    //Serial.println(posMsg);
+    Udp.beginPacket(outIp, outPort);
+    Udp.print("/light/");
+    Udp.print(motorID);
+    Udp.print("/maxPos ");
+    Udp.print(pos);
+    Udp.endPacket();
 }
 
 void getMinMaxStatus(){

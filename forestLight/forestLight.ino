@@ -159,9 +159,10 @@ void serialEvent(){
 ///////
 
 void sendMaxPos(char motorID, int pos){
-    String posMsg = "/maxPos ";
-    posMsg+= debugCount;
-    //Serial.println(posMsg);
+    Serial.print("/light/");
+    Serial.print(motorID);
+    Serial.print("/maxPos ");
+    Serial.println(pos);
 }
 
 void getMinMaxStatus(){
