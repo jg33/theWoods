@@ -111,11 +111,14 @@ void loop() {
   int size = Udp.parsePacket();
 
   if (size > 0) {
-    Udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
-    Serial.println("Contents:");
-    String _msg = String(packetBuffer);
-    Serial.println(_msg);
-    parseCommand(_msg);
+    int n = Udp.read(packetBuffer, sizeof(packetBuffer) - 1);
+    if (n > 0) {
+      packetBuffer[n] = '\0';
+      Serial.println("Contents:");
+      String _msg = String(packetBuffer);
+      Serial.println(_msg);
+      parseCommand(_msg);
+    }
     
 //    while (size--) {
 //      bundle.fill(Udp.read());
