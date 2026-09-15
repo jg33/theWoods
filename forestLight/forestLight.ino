@@ -199,35 +199,25 @@ void parseCommand(String msg){
   char cmd = msg.charAt(0);
   //Serial.println("/debug/command "+cmd);
   
-  if(cmd=='i'){ 
-    //intensity
-    signed int val = msg.substring(1,msg.length()-1).toInt();
+  if(cmd=='i'){
+    signed int val = msg.substring(1).toInt();
     targetIntensity = val;
     ////Serial.println("/debug/intensity "+ String(val));
-    
-  } else if(cmd=='p'){ 
-    //position
-     String stringVal = msg.substring(2, msg.length()-1);
-     ////Serial.println("/debug "+stringVal);
-     
-     long val = stringVal.toInt();
-     ////Serial.println("/debug "+ val);
 
+  } else if(cmd=='p'){
+     long val = msg.substring(1).toInt();
      motor.moveTo(val);
      //Serial.println("/debug/position "+String(val));
-     
+
   } else if(cmd=='x'){
-    //identify
     identify();
-    
+
   } else if (cmd=='-'){
-    String stringVal = msg.substring(2, msg.length()-1);
-    long val = stringVal.toInt();
+    long val = msg.substring(1).toInt();
     motor.move(-val);
-    
+
   } else if (cmd=='='){
-    String stringVal = msg.substring(2, msg.length()-1);
-    long val = stringVal.toInt();
+    long val = msg.substring(1).toInt();
     motor.move(val);
 
   } else if (cmd=='c'){
