@@ -1,6 +1,8 @@
 # me - this DAT
 # scriptOp - the Script CHOP operator which is cooking
 
+import zlib
+
 IDLE_TIMEOUT = 500
 
 # Import target logic from the parallel 'target_logic' textDAT inside this COMP.
@@ -68,7 +70,7 @@ def _parse_blob_tracks(inp, targets, target_logic_mod):
         try:
             label = int(suffix)
         except ValueError:
-            label = hash(prefix) & 0x7FFFFFFF
+            label = zlib.crc32(prefix.encode()) & 0x7FFFFFFF
 
         x = float(tx_chan[0])
         y = float(ty_chan[0])
@@ -95,9 +97,11 @@ def onCook(scriptOp):
     seen_labels, targets = _parse_blob_tracks(inp, targets, target_logic)
 
     # Update unseen targets; collect labels ready to die.
+    # Guard: parse failure (seen_labels is None) must not crash the loop; the
+    # error channel path below will surface the failure.
     to_remove = []
     for label, t in targets.items():
-        if label not in seen_labels:
+        if seen_labels is None or label not in seen_labels:
             t = target_logic.update_target(t, t["current"][0], t["current"][1], False)
             targets[label] = t
         if t.get("ready_to_die"):
@@ -107,6 +111,8 @@ def onCook(scriptOp):
         del targets[label]
 
     # Idle logic
+    # ponytail: parse failure resets idle_timer (error != idle); if we want a
+    # miswired input to eventually trigger idle, gate this on `seen_labels is not None`.
     if seen_labels is not None and len(seen_labels) == 0:
         idle_timer += 1
     else:

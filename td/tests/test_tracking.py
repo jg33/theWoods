@@ -91,3 +91,31 @@ def test_parse_blob_tracks_missing_ty_skipped():
     targets = {}
     seen, targets = _parse_blob_tracks(inp, targets, target_logic)
     assert seen == set()
+
+
+def test_parse_blob_tracks_non_blob_prefix_uses_crc32():
+    inp = _Chop([_Channel("foo:tx", [0.5]), _Channel("foo:ty", [0.6])])
+    targets = {}
+    seen, targets = _parse_blob_tracks(inp, targets, target_logic)
+    assert len(seen) == 1
+    label = next(iter(seen))
+    assert label == __import__("zlib").crc32(b"foo") & 0x7FFFFFFF
+
+
+def test_parse_failure_with_existing_targets_no_crash_and_error_channel():
+    inp = _Chop([_Channel("something", [1.0])])
+    targets = {1: dict(current=[0.5, 0.5], influence=1.0, quiet_timer=0, dying=False)}
+    seen, targets = _parse_blob_tracks(inp, targets, target_logic)
+    assert seen is None
+    # simulate onCook update-unseen loop
+    to_remove = []
+    for label, t in targets.items():
+        if seen is None or label not in seen:
+            t = target_logic.update_target(t, t["current"][0], t["current"][1], False)
+            targets[label] = t
+        if t.get("ready_to_die"):
+            to_remove.append(label)
+    assert not to_remove
+    assert targets[1]["dying"]
+    # error channel condition from onCook
+    assert seen is None
