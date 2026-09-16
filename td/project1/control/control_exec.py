@@ -108,8 +108,15 @@ def onCook(scriptOp):
 
     # Script CHOP inlets accept only CHOP-family inputs, so the targets/tracks
     # Table DATs are referenced by path instead of being wired in as inputs.
-    targets_dat = op("../tracking/targets") if op else None
-    tracks_dat = op("../trackUI/tracks") if op else None
+    # op() inside this Script resolves relative to the /project1/control COMP,
+    # so sibling refs are ../X and cross-COMP lookups are ../../X.
+    targets_dat = op("../../tracking/targets") if op else None
+    tracks_dat = op("../../trackUI/tracks") if op else None
+    if targets_dat is None or tracks_dat is None:
+        try:
+            debug("control: targets/tracks DAT not found (cross-COMP paths)")
+        except NameError:
+            pass
 
     targets = _parse_targets(targets_dat)
     tracks = _parse_tracks(tracks_dat)

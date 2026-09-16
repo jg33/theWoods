@@ -78,8 +78,8 @@ def _run_onCook(monkeypatch, lights_rows, tracks_rows):
     dats = {
         "../oscOut": osc_out,
         "../oscOutBcast": osc_out_bcast,
-        "../control/lights": _MockDat(lights_rows),
-        "../trackUI/tracks": _MockDat(tracks_rows),
+        "../../control/lights": _MockDat(lights_rows),
+        "../../trackUI/tracks": _MockDat(tracks_rows),
     }
     monkeypatch.setattr(net_exec, "net_logic", net_logic, raising=False)
     monkeypatch.setattr(net_exec, "op", lambda name: dats[name], raising=False)
@@ -137,7 +137,7 @@ def test_onPulse_sends_control_message(monkeypatch):
     osc_out = _MockOscOut()
     dats = {
         "../oscOut": osc_out,
-        "../trackUI/tracks": _MockDat([
+        "../../trackUI/tracks": _MockDat([
             ["id", "sx", "sy", "ex", "ey", "ip"],
             ["2", "0", "0", "50", "0", "192.168.0.102"],
         ]),
@@ -151,11 +151,12 @@ def test_onPulse_sends_control_message(monkeypatch):
         Moveamount = 10
 
     scriptOp = types.SimpleNamespace(par=_Par())
-    net_exec.onPulse(scriptOp, types.SimpleNamespace(name="Zero"))
+    par = types.SimpleNamespace(name="Zero", owner=scriptOp)
+    net_exec.onPulse(par)
     assert osc_out.sent == [("/light/2/zero", [])]
     assert osc_out.par.address == "192.168.0.102"
     assert osc_out.par.port == 9999
 
     osc_out.sent[:] = []
-    net_exec.onPulse(scriptOp, types.SimpleNamespace(name="Move"))
+    net_exec.onPulse(types.SimpleNamespace(name="Move", owner=scriptOp))
     assert osc_out.sent == [("/light/2/move", [10])]

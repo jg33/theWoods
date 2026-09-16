@@ -84,20 +84,20 @@ Inside `/project1/control` (a Base COMP), build this network to replicate the OF
 1. Add a **Script CHOP** named `controlcook`:
    - Parameter: **Callbacks DAT** → the sibling Text DAT `control_exec.py`
    - Parameter: **Cook Type** → `Python`
-   - Note: `controlcook` reads the targets and tracks Table DATs directly by path (`../tracking/targets`, `../trackUI/tracks`) inside `control_exec.py` — do **not** add COMP inputs or wire DATs into the CHOP (CHOP inlets accept CHOP family only).
+   - Note: `controlcook` reads the targets and tracks Table DATs directly by path (`../../tracking/targets`, `../../trackUI/tracks`) inside `control_exec.py` — do **not** add COMP inputs or wire DATs into the CHOP (CHOP inlets accept CHOP family only). `op()` resolves relative to the `/project1/control` COMP, so sibling refs are `../X` and cross-COMP lookups are `../../X`.
 2. Inside `/project1/control`, add a **Text DAT** named `light_logic` and point its `file` parameter to `td/project1/control/light_logic.py`, **Sync to File** On.
 3. Add another **Text DAT** named `control_exec` and point its `file` parameter to `td/project1/control/control_exec.py`, **Sync to File** On. In the `controlcook` Script CHOP **Callbacks DAT** field, set it to `control_exec`.
 4. Inside `/project1/control`, add a **Table DAT** named `lights` (columns will be set at runtime: `id, locationPercent, intensity`).
 5. `controlcook` → `null1` **Null CHOP** to expose the `state` channel.
 6. Add a **Noise CHOP** named `idlenoise` (or use `absTime.seconds` in a Math CHOP) and reference it in `control_exec.py` if you want real `ofNoise(t+id*6.66)`-style noise. The provided `light_logic.py` has a deterministic sine fallback, but in TD a Noise CHOP is closer to OF behavior.
-7. IDLE needs a driver: in the `/project1/tracking` COMP, `targetscook` outputs the `bIsIdle` channel (see tracking step 8's Null). Bind that channel into `control` — the simplest is a **Math CHOP** `bidle` inside `/project1/control` whose input TOP/DAT is empty and whose reference expression reads `op('../tracking/null1')['bIsIdle']`, then write it to `controlcook`'s `Bisidle` parameter via an **Expression** bind (`op('../tracking/null1')['bIsIdle']`). With `Manual Override` Off, `control_exec.py` uses the automatic state machine driven by this `Bisidle` (and the all-quiet check) to reach IDLE/QUIET.
+7. IDLE needs a driver: in the `/project1/tracking` COMP, `targetscook` outputs the `bIsIdle` channel (see tracking step 8's Null). Bind that channel into `control` — the simplest is a **Math CHOP** `bidle` inside `/project1/control` whose input TOP/DAT is empty and whose reference expression reads `op('../../tracking/null1')['bIsIdle']`, then write it to `controlcook`'s `Bisidle` parameter via an **Expression** bind (`op('../../tracking/null1')['bIsIdle']`). With `Manual Override` Off, `control_exec.py` uses the automatic state machine driven by this `Bisidle` (and the all-quiet check) to reach IDLE/QUIET.
 8. Externalize `/project1/control` to `td/project1/control.tox` and ensure `light_logic.py`, `control_exec.py`, and any generated Python DATs are saved as external files in `td/project1/control/`.
 
 ### Parameter defaults
 
 - Manual Override: `Off` — when Off, the automatic state machine (bIsIdle / all-quiet) drives `state`; when On, the `Manual State` slider takes over.
 - Manual State: `0` (NORMAL)
-- Is Idle: `Off` (bind `../tracking/null1`'s `bIsIdle` channel here so IDLE has a driver)
+- Is Idle: `Off` (bind `../../tracking/null1`'s `bIsIdle` channel here so IDLE has a driver)
 - Light Max Distance (per light): `300` pixels
 - Idle Highlight Min: `2` s
 - Idle Highlight Max: `10` s
@@ -157,7 +157,7 @@ Inside `/project1/network` (a Base COMP), build the OSC I/O: outbound position/i
 3. Add a **Script CHOP** named `sendcook`:
    - Parameter: **Callbacks DAT** → `net_exec`
    - Parameter: **Cook Type** → `Python`
-   - Note: `sendcook` reads the lights and tracks Table DATs directly by path (`../control/lights`, `../trackUI/tracks`) inside `net_exec.py` — do **not** wire DATs into the CHOP inputs (CHOP inlets accept CHOP family only).
+   - Note: `sendcook` reads the lights and tracks Table DATs directly by path (`../../control/lights`, `../../trackUI/tracks`) inside `net_exec.py` — do **not** wire DATs into the CHOP inputs (CHOP inlets accept CHOP family only).
 4. Add an **OSC Out DAT** named `oscOut`:
    - **Network** → `UDP`
    - `Host`/`Network` parameters are set per-light by `net_exec.py` from `tracks` IPs; per-node send port is `Nodeport` (default `9999`).
@@ -275,13 +275,13 @@ an operator-to-operator connection at the `/theWoods` root (or the path noted).
 1. `depthIn.outOverhead` → `tracking.inOverhead`. The overhead TOP (merged, clipped,
    ortho-rendered point cloud) is `tracking`'s only input.
 2. `tracking.targets` (Table DAT, `label, x, y, influence, quiet, dying`) → read by
-   `control`'s `control_exec.py` via `op("../tracking/targets")` — no wire needed.
+   `control`'s `control_exec.py` via `op("../../tracking/targets")` — no wire needed.
 3. `trackUI.tracks` (Table DAT) read by path — no wires needed (Table DATs can't feed
    Script CHOP inputs):
-   - `control`'s `control_exec.py` via `op("../trackUI/tracks")`.
-   - `network`'s `net_exec.py` via `op("../trackUI/tracks")`.
+   - `control`'s `control_exec.py` via `op("../../trackUI/tracks")`.
+   - `network`'s `net_exec.py` via `op("../../trackUI/tracks")`.
 4. `control.lights` (Table DAT, `id, locationPercent, intensity`) → read by
-   `network`'s `net_exec.py` via `op("../control/lights")` — no wire needed.
+   `network`'s `net_exec.py` via `op("../../control/lights")` — no wire needed.
 5. `network.oscIn` Port = `8899` (the UDP port nodes report status to — firmware defaultReportPort). Set on the DAT
    directly; it is not a custom parameter.
 

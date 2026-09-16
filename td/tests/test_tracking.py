@@ -24,10 +24,23 @@ def test_quiet_after_threshold():
 
 
 def test_moving_resets_quiet_timer():
+    # OF semantics: quiet resets when the ACTUAL frame movement (the ~0.05x
+    # lerp step, euclidean) exceeds quietMoveThreshold. A single 141px measured
+    # jump is only ~7px of actual movement after interpolation — far below 20 —
+    # so it must NOT reset.
     t = dict(current=[0.0, 0.0], influence=1.0, quiet_timer=299, dying=False)
     t = target_logic.update_target(t, 100.0, 100.0, True)
     assert not t["quiet"]
+    assert t["quiet_timer"] == 300
+
+    # Accumulated fast drift (a 2px measured jump moves ~0.1px and 200 of them
+    # build ~20px... but that stays below the per-frame 20 threshold; to actually
+    # exceed it the measured jump must be large). A measured jump of 1000px
+    # moves current by 50px — above 20 — so it resets.
+    t = dict(current=[0.0, 0.0], influence=1.0, quiet_timer=299, dying=False)
+    t = target_logic.update_target(t, 1000.0, 0.0, True)
     assert t["quiet_timer"] == 0
+    assert not t["quiet"]
 
 
 def test_dying_then_seen_revives():

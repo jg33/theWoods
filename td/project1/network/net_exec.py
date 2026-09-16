@@ -38,7 +38,7 @@ def onSetupParameters(scriptOp):
 
 def _send_control(scriptOp, light_id, control, steps=0):
     """Send a one-off control message to a single node's IP."""
-    tracks_dat = op("../trackUI/tracks") if op else None
+    tracks_dat = op("../../trackUI/tracks") if op else None
     ip_by_id = _tracks_by_id(tracks_dat)
     ip = ip_by_id.get(light_id)
     if not ip:
@@ -52,8 +52,11 @@ def _send_control(scriptOp, light_id, control, steps=0):
     osc_out.sendOSC(address, args)
 
 
-def onPulse(scriptOp, par):
+def onPulse(par):
     # par is a pulse; dispatch any control pulse to the selected light.
+    # TD invokes onPulse(par) with a single arg — derive the scriptOp from
+    # the parameter's owning operator.
+    scriptOp = par.owner
     control = par.name.lower()
     if control in ("identify", "calibrate", "zero", "stop"):
         _send_control(scriptOp, _selected_light(scriptOp), control)
@@ -141,8 +144,14 @@ def onCook(scriptOp):
 
     # Script CHOP inlets accept only CHOP-family inputs, so the lights/tracks
     # Table DATs are referenced directly rather than wired in as inputs.
-    lights_dat = op("../control/lights") if op else None
-    tracks_dat = op("../trackUI/tracks") if op else None
+    # op() resolves relative to /project1/network, so cross-COMP lookups are ../../X.
+    lights_dat = op("../../control/lights") if op else None
+    tracks_dat = op("../../trackUI/tracks") if op else None
+    if lights_dat is None or tracks_dat is None:
+        try:
+            debug("network: lights/tracks DAT not found (cross-COMP paths)")
+        except Exception:
+            pass
     lights = _parse_lights(lights_dat)
     ip_by_id = _tracks_by_id(tracks_dat)
 

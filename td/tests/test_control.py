@@ -231,8 +231,8 @@ def test_max_distance_indexed_by_track_id():
         def appendChan(self, name):
             return [0.0]
 
-    # Patch TD op() so onCook resolves targets/tracks by path (as in TD).
-    control_exec.op = lambda name: {"../trackUI/tracks": tracks_dat}.get(name)
+    # Patch TD op() so onCook resolves targets/tracks by corrected cross-COMP path.
+    control_exec.op = lambda name: {"../../trackUI/tracks": tracks_dat}.get(name)
 
     scriptOp = _MockScriptOp()
     control_exec.onCook(scriptOp)
@@ -270,8 +270,8 @@ def test_manual_override_gate_reaches_automatic_idle():
     control_exec.light_logic = light_logic
     control_exec.me = type("me", (), {"time": type("time", (), {"rate": 60})()})()
     control_exec.op = lambda name: {
-        "../tracking/targets": _mock_dat([["label", "x", "y", "influence", "quiet", "dying"]]),
-        "../trackUI/tracks": _mock_dat([["id", "sx", "sy", "ex", "ey", "ip"]]),
+        "../../tracking/targets": _mock_dat([["label", "x", "y", "influence", "quiet", "dying"]]),
+        "../../trackUI/tracks": _mock_dat([["id", "sx", "sy", "ex", "ey", "ip"]]),
     }.get(name)
 
     class _MockPar:
