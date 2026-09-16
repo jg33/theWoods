@@ -1,0 +1,390 @@
+# Review package: 7b5195d6728d1329c7f061e4bff619993c8935c5..HEAD
+
+## Commits
+fc141fa fix(td): parse real Blob Track CHOP per-track channels, clean pycache
+
+## Files changed
+ .gitignore                                         |   2 +
+ .../sdd/2026-09-15-td-port/task-2-report.md        |  34 ++++++++
+ td/README.md                                       |  17 ++--
+ td/project1/__pycache__/__init__.cpython-312.pyc   | Bin 186 -> 0 bytes
+ .../tracking/__pycache__/__init__.cpython-312.pyc  | Bin 195 -> 0 bytes
+ .../__pycache__/target_logic.cpython-312.pyc       | Bin 1161 -> 0 bytes
+ .../__pycache__/targets_exec.cpython-314.pyc       | Bin 4345 -> 0 bytes
+ td/project1/tracking/targets_exec.py               |  96 ++++++++++++++-------
+ .../conftest.cpython-312-pytest-9.1.1.pyc          | Bin 567 -> 0 bytes
+ .../test_tracking.cpython-312-pytest-9.1.1.pyc     | Bin 3963 -> 0 bytes
+ td/tests/test_tracking.py                          |  70 +++++++++++++--
+ 11 files changed, 174 insertions(+), 45 deletions(-)
+
+## Diff
+diff --git a/.gitignore b/.gitignore
+index e458ed5..af25164 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1 +1,3 @@
+ .worktrees/
++__pycache__/
++*.pyc
+diff --git a/.superpowers/sdd/2026-09-15-td-port/task-2-report.md b/.superpowers/sdd/2026-09-15-td-port/task-2-report.md
+new file mode 100644
+index 0000000..03af107
+--- /dev/null
++++ b/.superpowers/sdd/2026-09-15-td-port/task-2-report.md
+@@ -0,0 +1,34 @@
++# Task 2 Report — tracking: blob track + Target logic
++
++## Status
++Done.
++
++## Commits
++- `7b5195d6728d1329c7f061e4bff619993c8935c5` — `feat(td): tracking COMP — blob track + Target logic`
++- (pending) cleanup commit for reviewer fixes.
++
++## Test summary
++`uv run --with pytest pytest td/tests/test_tracking.py -v` → 8 passed.
++
++## What changed
++- Created `td/project1/tracking/target_logic.py` — pure-Python, TD-free `update_target()` matching the OF `Target` smoothing/influence/quiet/dying behavior.
++- Created `td/project1/tracking/targets_exec.py` — Script CHOP glue that:
++  - Parses real Blob Track CHOP per-track channels (`blob1:tx`, `blob1:ty`, `blob1:w`, `blob1:h`, `blob1:age`, ...).
++  - Derives target label from the per-track prefix (`blob1` → label `1`).
++  - Outputs an `error` channel and sets `ui.status` when no `*:tx`/`*:ty` channels are present so failure is not silent.
++  - Maintains persistent per-label `Target` state keyed by blob label.
++  - Updates `targets` Table DAT (`label, x, y, influence, quiet, dying`).
++  - Outputs `bIsIdle` channel after 500 frames with no blobs.
++  - Loads `target_logic` as a DAT module via `mod("target_logic")`.
++- Created `td/tests/test_tracking.py` plus `td/tests/conftest.py` (adds `td/` to import path).
++- Updated `td/README.md` with build instructions that match the real Blob Track CHOP channel naming.
++
++## Verification run
++- `uv run --with pytest pytest td/tests/test_tracking.py -v` → 8 passed.
++- `uv run --with ruff ruff check --select E,W,F --ignore F821,E722 ...` → all passed.
++- `uv run --with mypy --disable-error-code name-defined mypy td/project1/tracking/target_logic.py td/tests/test_tracking.py` → no issues. (`targets_exec.py` uses TD builtins `mod`/`ui`/`op`/`me`; mypy flags `mod` unless `name-defined` is disabled.)
++
++## Concerns
++- `targets_exec.py` uses `mod("target_logic")` and TouchDesigner globals (`me`, `op`, `ui`) that will only resolve inside TD; this is expected for Script CHOP glue.
++- The Blob Track CHOP prefix format assumption (`blobN:tx`/`blobN:ty`) is based on TouchDesigner documentation and the reviewer finding. If a project uses a different Blob Track CHOP output naming convention, `_parse_blob_tracks` will fall back to the `error` channel.
++- I cannot run TouchDesigner, so the Script CHOP wiring has not been exercised live.
+diff --git a/td/README.md b/td/README.md
+index 205b532..efee756 100644
+--- a/td/README.md
++++ b/td/README.md
+@@ -43,28 +43,29 @@ The `externalizations.tsv` ledger is managed by Embody as you externalize; stubs
+ 
+ Inside `/project1/tracking` (a Base COMP), build this network to replicate the OF `CvManager`/`Target` behavior:
+ 
+ 1. `inOverhead` Video Device In / Movie File In / other video source TOP (luminance: viewers as bright blobs on dark bg).
+ 2. `inOverhead` output → `threshold1` **Threshold TOP**:
+    - Threshold `0.5`
+    - Pre-shrink `0`
+    - Pre-dilate `1`
+    - Blur `1` or small radius
+    - Output RGBA so blobs remain bright
+-3. `threshold1` output → `blobtrack1` **Blob Track TOP** (NOT Blob Track CHOP; it emits `blobid`, `u`, `v`, etc. channels via a CHOP-out style TOP) and then wire the TOP's CHOP output into a **CHOP to DAT** named `blobtable`, OR use a **Blob Track CHOP** after converting to `tx`/`ty` points.
+-
+-   Simpler path using a **Blob Track CHOP**:
+-   - Add a `noise1` or `pattern1` generating `tx`/`ty` is not needed for real blobs.
+-   - Better: use **Blob Track TOP** → **CHOP to DAT** `blobtable` (columns: `id`, `u`, `v`, `width`, `height`, `age`).
+-   - Then a **DAT to CHOP** `blobchop` selecting `id` as first column, rename `id`→`blobid`, `u`→`tx`, `v`→`ty` and feed that into `targetscook`.
+-
+-   For the most direct construction, place a **Blob Track CHOP** named `blobtrack1` that expects `tx`/`ty` input. If using the Blob Track TOP path, map its CHOP channels to `tx`/`ty` before this step.
++3. `threshold1` output → `blobtrack1` **Blob Track CHOP**:
++   - Input: `threshold1` TOP output (RGBA, bright blobs on dark background).
++   - The CHOP will find blobs and output per-blob channels with a *per-track prefix*:
++     `blob1:tx`, `blob1:ty`, `blob1:w`, `blob1:h`, `blob1:age`,
++     `blob2:tx`, `blob2:ty`, ...
++   - `targets_exec.py` reads those per-track `*:tx` and `*:ty` channels and uses the prefix (`blob1`, `blob2`, ...) as the target label.
++   - Set **Max Blobs** to `8` (matches `NUM_LIGHTS`/`NUM_TARGETS`).
++   - Set **Max Blob Movement** to `100` pixels.
++   - Set **Lost Blob Timeout (s)** to `1` (≈ 1000 ms, tune per show).
+ 4. `blobtrack1` → `targetscook` **Script CHOP**:
+    - Parameter: **Callbacks DAT** → the sibling Text DAT `targets_exec.py`
+    - Parameter: **Cook Type** → `Python`
+ 5. Inside `/project1/tracking`, add a **Text DAT** named `target_logic` and point its `file` parameter to `td/project1/tracking/target_logic.py`, **Sync to File** On.
+ 6. Add another **Text DAT** named `targets_exec` and point its `file` parameter to `td/project1/tracking/targets_exec.py`, **Sync to File** On. In the `targetscook` Script CHOP **Callbacks DAT** field, set it to `targets_exec`.
+ 7. Inside `/project1/tracking`, add a **Table DAT** named `targets` (columns will be set at runtime: `label, x, y, influence, quiet, dying`).
+ 8. `targetscook` → `null1` **Null CHOP** to expose the `bIsIdle` channel.
+ 9. For `debug` visualization: `threshold1` output → `composite1` **Composite TOP** overlaying the `targets` DAT converted via a **DAT to SOP** or simply display `threshold1` as the debug TOP. Set a **Null TOP** named `debug` from `threshold1`.
+ 10. Externalize `/project1/tracking` to `td/project1/tracking.tox` and ensure `target_logic.py`, `targets_exec.py`, and any generated Python DATs are saved as external files in `td/project1/tracking/`.
+ 
+diff --git a/td/project1/__pycache__/__init__.cpython-312.pyc b/td/project1/__pycache__/__init__.cpython-312.pyc
+deleted file mode 100644
+index 0e4a837..0000000
+Binary files a/td/project1/__pycache__/__init__.cpython-312.pyc and /dev/null differ
+diff --git a/td/project1/tracking/__pycache__/__init__.cpython-312.pyc b/td/project1/tracking/__pycache__/__init__.cpython-312.pyc
+deleted file mode 100644
+index 5f56fb2..0000000
+Binary files a/td/project1/tracking/__pycache__/__init__.cpython-312.pyc and /dev/null differ
+diff --git a/td/project1/tracking/__pycache__/target_logic.cpython-312.pyc b/td/project1/tracking/__pycache__/target_logic.cpython-312.pyc
+deleted file mode 100644
+index 51aa5a8..0000000
+Binary files a/td/project1/tracking/__pycache__/target_logic.cpython-312.pyc and /dev/null differ
+diff --git a/td/project1/tracking/__pycache__/targets_exec.cpython-314.pyc b/td/project1/tracking/__pycache__/targets_exec.cpython-314.pyc
+deleted file mode 100644
+index e862b3a..0000000
+Binary files a/td/project1/tracking/__pycache__/targets_exec.cpython-314.pyc and /dev/null differ
+diff --git a/td/project1/tracking/targets_exec.py b/td/project1/tracking/targets_exec.py
+index 3d4b6fc..cceb5f7 100644
+--- a/td/project1/tracking/targets_exec.py
++++ b/td/project1/tracking/targets_exec.py
+@@ -25,80 +25,116 @@ def _get_targets(scriptOp):
+     targets = scriptOp.fetch("targets", {})
+     idle_timer = scriptOp.fetch("idleTimer", 0)
+     return targets, idle_timer
+ 
+ 
+ def _set_targets(scriptOp, targets, idle_timer):
+     scriptOp.store("targets", targets)
+     scriptOp.store("idleTimer", idle_timer)
+ 
+ 
++def _parse_blob_tracks(inp, targets, target_logic_mod):
++    # Real Blob Track CHOP emits single-sample channels named per track:
++    #   blob1:tx, blob1:ty, blob1:w, blob1:h, blob1:age, ...
++    # Each prefix (e.g. 'blob1') is one tracked blob. Return seen label ids and
++    # updated targets; logs an error if no tx/ty pairs found.
++    seen_labels = set()
++    if inp is None or target_logic_mod is None:
++        return seen_labels, targets
++
++    chan_names = [c.name for c in inp.chans()]
++    tx_names = [n for n in chan_names if n.endswith(":tx")]
++    prefixes = sorted(set(n[:-3] for n in tx_names))
++
++    if not prefixes:
++        # No recognizable blob channels — this should be noisy, not silent.
++        return None, targets
++
++    for prefix in prefixes:
++        tx_name = prefix + ":tx"
++        ty_name = prefix + ":ty"
++        if ty_name not in chan_names:
++            continue
++
++        tx_chan = inp[tx_name]
++        ty_chan = inp[ty_name]
++        # Per-track channels are single-sample in the real Blob Track CHOP.
++        if tx_chan.numSamples < 1 or ty_chan.numSamples < 1:
++            continue
++
++        # Derive a stable integer label from the prefix. Blob Track prefixes
++        # are typically 'blob1', 'blob2', ... but we fall back to a hash if the
++        # numeric suffix is missing.
++        suffix = prefix[len("blob"):] if prefix.startswith("blob") else ""
++        try:
++            label = int(suffix)
++        except ValueError:
++            label = hash(prefix) & 0x7FFFFFFF
++
++        x = float(tx_chan[0])
++        y = float(ty_chan[0])
++        seen_labels.add(label)
++
++        if label not in targets:
++            targets[label] = {
++                "current": [x, y],
++                "influence": 0.0001,
++                "quiet_timer": 0,
++                "dying": False,
++            }
++
++        targets[label] = target_logic_mod.update_target(targets[label], x, y, True)
++
++    return seen_labels, targets
++
++
+ def onCook(scriptOp):
+     targets, idle_timer = _get_targets(scriptOp)
+ 
+-    # Blob Track CHOP input channels: blobid, tx, ty (one sample per blob).
+     inputs = scriptOp.inputs
+-    seen_labels = set()
+-    if inputs and target_logic is not None:
+-        inp = inputs[0]
+-        chan_names = [c.name for c in inp.chans()]
+-        blobid = inp["blobid"] if "blobid" in chan_names else None
+-        tx = inp["tx"] if "tx" in chan_names else None
+-        ty = inp["ty"] if "ty" in chan_names else None
+-
+-        if blobid is not None and tx is not None and ty is not None:
+-            for i in range(inp.numSamples):
+-                label = int(blobid[i])
+-                x = float(tx[i])
+-                y = float(ty[i])
+-                seen_labels.add(label)
+-
+-                if label not in targets:
+-                    targets[label] = {
+-                        "current": [x, y],
+-                        "influence": 0.0001,
+-                        "quiet_timer": 0,
+-                        "dying": False,
+-                    }
+-
+-                targets[label] = target_logic.update_target(
+-                    targets[label], x, y, True
+-                )
++    inp = inputs[0] if inputs else None
++    seen_labels, targets = _parse_blob_tracks(inp, targets, target_logic)
+ 
+     # Update unseen targets; collect labels ready to die.
+     to_remove = []
+     for label, t in targets.items():
+         if label not in seen_labels:
+             t = target_logic.update_target(t, t["current"][0], t["current"][1], False)
+             targets[label] = t
+         if t.get("ready_to_die"):
+             to_remove.append(label)
+ 
+     for label in to_remove:
+         del targets[label]
+ 
+     # Idle logic
+-    if len(seen_labels) == 0:
++    if seen_labels is not None and len(seen_labels) == 0:
+         idle_timer += 1
+     else:
+-        if idle_timer > IDLE_TIMEOUT:
+-            pass  # leaving idle
+         idle_timer = 0
+ 
+     bIsIdle = 1 if idle_timer > IDLE_TIMEOUT else 0
+     _set_targets(scriptOp, targets, idle_timer)
+ 
+     # Build output
+     scriptOp.clear()
+     scriptOp.rate = me.time.rate if hasattr(me, "time") else 60
+     scriptOp.numSamples = 1
+     scriptOp.appendChan("bIsIdle")[0] = bIsIdle
++    # Loud failure path: if the input had no recognizable blob channels,
++    # emit an error channel and log it so the operator does not die silently.
++    if seen_labels is None:
++        scriptOp.appendChan("error")[0] = 1
++        if hasattr(ui, "status"):
++            ui.status = "targets_exec: no blob:tx/blob:ty channels found"
++    else:
++        scriptOp.appendChan("error")[0] = 0
+ 
+     # Update targets Table DAT: label, x, y, influence, quiet, dying
+     targets_dat = op("../targets") if op else None
+     if targets_dat is not None:
+         targets_dat.setSize(1 + len(targets), 6)
+         targets_dat[0, 0] = "label"
+         targets_dat[0, 1] = "x"
+         targets_dat[0, 2] = "y"
+         targets_dat[0, 3] = "influence"
+         targets_dat[0, 4] = "quiet"
+diff --git a/td/tests/__pycache__/conftest.cpython-312-pytest-9.1.1.pyc b/td/tests/__pycache__/conftest.cpython-312-pytest-9.1.1.pyc
+deleted file mode 100644
+index e205993..0000000
+Binary files a/td/tests/__pycache__/conftest.cpython-312-pytest-9.1.1.pyc and /dev/null differ
+diff --git a/td/tests/__pycache__/test_tracking.cpython-312-pytest-9.1.1.pyc b/td/tests/__pycache__/test_tracking.cpython-312-pytest-9.1.1.pyc
+deleted file mode 100644
+index 40d6733..0000000
+Binary files a/td/tests/__pycache__/test_tracking.cpython-312-pytest-9.1.1.pyc and /dev/null differ
+diff --git a/td/tests/test_tracking.py b/td/tests/test_tracking.py
+index 7feb4a8..80bd5de 100644
+--- a/td/tests/test_tracking.py
++++ b/td/tests/test_tracking.py
+@@ -1,37 +1,93 @@
+-from project1.tracking.target_logic import update_target
++from project1.tracking import target_logic
++from project1.tracking.targets_exec import _parse_blob_tracks
+ 
+ 
+ def test_influence_ramps_up():
+     t = dict(current=[0.0, 0.0], influence=0.0001, quiet_timer=0, dying=False)
+     for _ in range(100):
+-        t = update_target(t, 100.0, 100.0, True)
++        t = target_logic.update_target(t, 100.0, 100.0, True)
+     assert t["influence"] == 1.0
+ 
+ 
+ def test_dying_drains_influence():
+     t = dict(current=[0.0, 0.0], influence=0.005, quiet_timer=0, dying=False)
+     for _ in range(10):
+-        t = update_target(t, 0.0, 0.0, False)
++        t = target_logic.update_target(t, 0.0, 0.0, False)
+     assert t["ready_to_die"]
+ 
+ 
+ def test_quiet_after_threshold():
+     t = dict(current=[0.0, 0.0], influence=1.0, quiet_timer=0, dying=False)
+     for _ in range(301):
+-        t = update_target(t, 0.0, 0.0, True)
++        t = target_logic.update_target(t, 0.0, 0.0, True)
+     assert t["quiet"]
+ 
+ 
+ def test_moving_resets_quiet_timer():
+     t = dict(current=[0.0, 0.0], influence=1.0, quiet_timer=299, dying=False)
+-    t = update_target(t, 100.0, 100.0, True)
++    t = target_logic.update_target(t, 100.0, 100.0, True)
+     assert not t["quiet"]
+     assert t["quiet_timer"] == 0
+ 
+ 
+ def test_dying_then_seen_revives():
+     t = dict(current=[0.0, 0.0], influence=0.5, quiet_timer=0, dying=False)
+-    t = update_target(t, 0.0, 0.0, False)
++    t = target_logic.update_target(t, 0.0, 0.0, False)
+     assert t["dying"]
+-    t = update_target(t, 10.0, 10.0, True)
++    t = target_logic.update_target(t, 10.0, 10.0, True)
+     assert not t["dying"]
++
++
++class _Channel:
++    def __init__(self, name, samples):
++        self.name = name
++        self.numSamples = len(samples)
++        self._samples = list(samples)
++
++    def __getitem__(self, i):
++        return self._samples[i]
++
++
++class _Chop:
++    def __init__(self, channels):
++        self._channels = {c.name: c for c in channels}
++
++    def chans(self):
++        return list(self._channels.values())
++
++    def __getitem__(self, name):
++        return self._channels[name]
++
++
++def test_parse_blob_tracks_per_prefix_channels():
++    inp = _Chop(
++        [
++            _Channel("blob1:tx", [0.5]),
++            _Channel("blob1:ty", [0.6]),
++            _Channel("blob1:w", [10.0]),
++            _Channel("blob1:h", [12.0]),
++            _Channel("blob1:age", [2.0]),
++            _Channel("blob2:tx", [0.7]),
++            _Channel("blob2:ty", [0.8]),
++        ]
++    )
++    targets = {}
++    seen, targets = _parse_blob_tracks(inp, targets, target_logic)
++    assert seen == {1, 2}
++    assert set(targets.keys()) == {1, 2}
++    assert targets[1]["current"] == [0.5, 0.6]
++    assert targets[2]["current"] == [0.7, 0.8]
++
++
++def test_parse_blob_tracks_empty_returns_none():
++    inp = _Chop([_Channel("something", [1.0])])
++    targets = {}
++    seen, targets = _parse_blob_tracks(inp, targets, target_logic)
++    assert seen is None
++
++
++def test_parse_blob_tracks_missing_ty_skipped():
++    inp = _Chop([_Channel("blob1:tx", [0.5])])
++    targets = {}
++    seen, targets = _parse_blob_tracks(inp, targets, target_logic)
++    assert seen == set()

@@ -1,0 +1,135 @@
+# Review package: fc141fa..HEAD
+
+## Commits
+4c3a14a fix(td): guard parse failure in targets_exec; stable CRC32 label
+
+## Files changed
+ td/project1/tracking/targets_exec.py | 10 ++++++++--
+ td/tests/test_tracking.py            | 28 ++++++++++++++++++++++++++++
+ 2 files changed, 36 insertions(+), 2 deletions(-)
+
+## Diff
+diff --git a/td/project1/tracking/targets_exec.py b/td/project1/tracking/targets_exec.py
+index cceb5f7..4c0842c 100644
+--- a/td/project1/tracking/targets_exec.py
++++ b/td/project1/tracking/targets_exec.py
+@@ -1,13 +1,15 @@
+ # me - this DAT
+ # scriptOp - the Script CHOP operator which is cooking
+ 
++import zlib
++
+ IDLE_TIMEOUT = 500
+ 
+ # Import target logic from the parallel 'target_logic' textDAT inside this COMP.
+ # In TouchDesigner: mod finds sibling DATs by name when the script lives in a COMP.
+ if "target_logic" not in globals():
+     try:
+         target_logic = mod("target_logic")
+     except Exception:
+         target_logic = None
+ 
+@@ -61,21 +63,21 @@ def _parse_blob_tracks(inp, targets, target_logic_mod):
+         if tx_chan.numSamples < 1 or ty_chan.numSamples < 1:
+             continue
+ 
+         # Derive a stable integer label from the prefix. Blob Track prefixes
+         # are typically 'blob1', 'blob2', ... but we fall back to a hash if the
+         # numeric suffix is missing.
+         suffix = prefix[len("blob"):] if prefix.startswith("blob") else ""
+         try:
+             label = int(suffix)
+         except ValueError:
+-            label = hash(prefix) & 0x7FFFFFFF
++            label = zlib.crc32(prefix.encode()) & 0x7FFFFFFF
+ 
+         x = float(tx_chan[0])
+         y = float(ty_chan[0])
+         seen_labels.add(label)
+ 
+         if label not in targets:
+             targets[label] = {
+                 "current": [x, y],
+                 "influence": 0.0001,
+                 "quiet_timer": 0,
+@@ -88,32 +90,36 @@ def _parse_blob_tracks(inp, targets, target_logic_mod):
+ 
+ 
+ def onCook(scriptOp):
+     targets, idle_timer = _get_targets(scriptOp)
+ 
+     inputs = scriptOp.inputs
+     inp = inputs[0] if inputs else None
+     seen_labels, targets = _parse_blob_tracks(inp, targets, target_logic)
+ 
+     # Update unseen targets; collect labels ready to die.
++    # Guard: parse failure (seen_labels is None) must not crash the loop; the
++    # error channel path below will surface the failure.
+     to_remove = []
+     for label, t in targets.items():
+-        if label not in seen_labels:
++        if seen_labels is None or label not in seen_labels:
+             t = target_logic.update_target(t, t["current"][0], t["current"][1], False)
+             targets[label] = t
+         if t.get("ready_to_die"):
+             to_remove.append(label)
+ 
+     for label in to_remove:
+         del targets[label]
+ 
+     # Idle logic
++    # ponytail: parse failure resets idle_timer (error != idle); if we want a
++    # miswired input to eventually trigger idle, gate this on `seen_labels is not None`.
+     if seen_labels is not None and len(seen_labels) == 0:
+         idle_timer += 1
+     else:
+         idle_timer = 0
+ 
+     bIsIdle = 1 if idle_timer > IDLE_TIMEOUT else 0
+     _set_targets(scriptOp, targets, idle_timer)
+ 
+     # Build output
+     scriptOp.clear()
+diff --git a/td/tests/test_tracking.py b/td/tests/test_tracking.py
+index 80bd5de..8b5ce61 100644
+--- a/td/tests/test_tracking.py
++++ b/td/tests/test_tracking.py
+@@ -84,10 +84,38 @@ def test_parse_blob_tracks_empty_returns_none():
+     targets = {}
+     seen, targets = _parse_blob_tracks(inp, targets, target_logic)
+     assert seen is None
+ 
+ 
+ def test_parse_blob_tracks_missing_ty_skipped():
+     inp = _Chop([_Channel("blob1:tx", [0.5])])
+     targets = {}
+     seen, targets = _parse_blob_tracks(inp, targets, target_logic)
+     assert seen == set()
++
++
++def test_parse_blob_tracks_non_blob_prefix_uses_crc32():
++    inp = _Chop([_Channel("foo:tx", [0.5]), _Channel("foo:ty", [0.6])])
++    targets = {}
++    seen, targets = _parse_blob_tracks(inp, targets, target_logic)
++    assert len(seen) == 1
++    label = next(iter(seen))
++    assert label == __import__("zlib").crc32(b"foo") & 0x7FFFFFFF
++
++
++def test_parse_failure_with_existing_targets_no_crash_and_error_channel():
++    inp = _Chop([_Channel("something", [1.0])])
++    targets = {1: dict(current=[0.5, 0.5], influence=1.0, quiet_timer=0, dying=False)}
++    seen, targets = _parse_blob_tracks(inp, targets, target_logic)
++    assert seen is None
++    # simulate onCook update-unseen loop
++    to_remove = []
++    for label, t in targets.items():
++        if seen is None or label not in seen:
++            t = target_logic.update_target(t, t["current"][0], t["current"][1], False)
++            targets[label] = t
++        if t.get("ready_to_die"):
++            to_remove.append(label)
++    assert not to_remove
++    assert targets[1]["dying"]
++    # error channel condition from onCook
++    assert seen is None

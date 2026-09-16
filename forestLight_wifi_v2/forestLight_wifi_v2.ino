@@ -143,9 +143,10 @@ void loop() {
   // handle OSC //
   int size = Udp.parsePacket();
   if (size > 0) {
-    // Status replies go back to whoever sent this command (TD oscIn port).
+    // Status replies: keep the sender's IP but always target TD's oscIn listen
+    // port — the OSC Out DAT's source port is ephemeral, not the listen port.
     replyIp = Udp.remoteIP();
-    replyPort = Udp.remotePort();
+    replyPort = defaultReportPort;
 
     OSCBundle bundle;
     while (size--) {
@@ -183,6 +184,7 @@ void loop() {
   } else if (atMax && movingTowardMax) {
      motor.stop();
      maxSteps = motor.currentPosition();
+     sendStatus("maxTrigger", 1);
      sendStatus("maxPos", maxSteps);
   } else {
      motor.run();
@@ -216,7 +218,7 @@ void onIntensity(OSCMessage &msg){
   // /light/<n>/intensity <float 0-1> — text 'i<n>' took raw PWM 0-255;
   // OSC carries the normalized float TD speaks.
   float f = msg.getFloat(0);
-  targetIntensity = (int)(f * 255.0f);
+  targetIntensity = (int)constrain(f * 255.0f, 0.0f, 255.0f);
 }
 
 void onIdentify(OSCMessage &msg){

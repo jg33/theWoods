@@ -1,90 +1,42 @@
-# Task 7 Report — Firmware: OSC in `forestLight_wifi_v2`
+# Task 7 Report — firmware OSC in forestLight_wifi_v2
 
-**Status:** Done (commit `2b4cd5b`). Bench test not performed (no hardware).
+## Status
+Done (implemented in controller session — subagent dispatches were failing repeatedly; see ledger ruling from Task 4/5).
 
-## What changed
+## What changed (forestLight_wifi_v2/forestLight_wifi_v2.ino)
 
-`forestLight_wifi_v2/forestLight_wifi_v2.ino` — replaced the plain-text UDP command
-layer with CNMAT-OSC, matching the TD `network` COMP address map.
+- **Command layer replaced, hardware layer preserved verbatim.** Plain-text `parseCommand()` removed. The stepper/limit-switch/intensity loop, `identify()`, `calibrate()`, `getMinMaxStatus()`, pin config, WiFi/UDP setup, and AccelStepper tuning are unchanged from the original sketch (only moved out of the botched partial edit that had hoisted `void setup()` above the pin defines — restored original structure).
+- **OSC receive:** `OSCBundle.fill()` + `bundle.dispatch()` for this node's addresses, built once in `setup()` via `snprintf` from `NODE_ID`. Handlers: `/position` (float 0-1 → `motor.moveTo(f * maxSteps)`), `/intensity` (float 0-1 → `targetIntensity = f * 255`), `/identify`, `/calibrate`, `/zero`, `/stop`, `/move` (int steps, signed relative). `/ping` ignored (one-way liveness).
+- **Status replies as OSC:** `sendStatus()` builds an `OSCMessage` `/light/<n>/<status> <int>` and sends via `Udp` to the *last command sender's* IP:port (`Udp.remoteIP()/remotePort()` captured per packet), falling back to broadcast on TD's default listen port 8899 before any command arrives. Replaces the old plain-text `sendMaxPos()` print.
+- **Limit events now report:** `minTrigger` sent when stopping at min; `maxTrigger`/`maxPos` on max stop (maxSteps update preserved).
+- **Ports:** listen on 9999 (TD Nodeport — where `network` unicasts commands); report to sender / 8899 (TD oscIn default).
+- **NODE_ID define** added (set per node at flash time; matches tracks.tsv default IP convention 192.168.0.10x → id x-100).
+- Removed dead code: commented-out old OSC bundle block, unused serial parser paths, unused `serialInput`/`inputStringComplete`/`debugCount` remnants where harmless — serial event handlers kept but inert (they were already commented out at the call site).
 
-1. **Ports / addresses** (top of file):
-   - `localPort` `8888` → `9999` (TD `Nodeport`; `sendcook` unicasts commands here).
-   - `outPort` `9999` → `8899` (TD `oscIn` `Listenport`; our node status reports go here).
-   - `outIp` `10.40.10.105` → `255.255.255.255` broadcast (TD `oscIn` is a UDP listener,
-     it receives from any host). No per-node TD return IP is configured in the network COMP.
-   - Added `#define NODE_ID 3` next to the per-node static IP block — this is the light index
-     used in `/light/<n>/...` both inbound and outbound. **Must be set per-node on flash.**
+## Semantics decisions (text parser parity)
+- `p<n>` took raw absolute steps; OSC `/position` takes normalized 0-1 → scaled by `maxSteps` (updated live at max-stop, same variable the limit logic already maintained).
+- `i<n>` took raw PWM 0-255; OSC `/intensity` is normalized 0-1 → ×255.
+- `-n`/`=n` → single signed `/move <int>` (CNMAT `getInt`).
+- `x`→`/identify`, `c`→`/calibrate`, `r`→`/zero`, `z`→`/stop` — mapped to the same existing functions unchanged.
 
-2. **`loop()` OSC receive** — replaced the string/`packetBuffer` + commented `OSCBundle`
-   path with a single `OSCMessage` filled via `fill(Udp.read())`, dispatched to `routeOSC(msg)`,
-   then `msg.empty()`. Guarded by `hasError()`.
+## Lib additions
+None — CNMAT `OSCMessage`/`OSCBundle`/`OSCData` were already included (previously unused receive path now exercised).
 
-3. **`parseCommand(String)` → `routeOSC(OSCMessage&)`** — address router. Strips the
-   `"/light/<NODE_ID>/"` prefix and dispatches on the remainder:
+## Compile-risk notes (no Arduino toolchain here)
+- `bundle.dispatch(addr, handler)` with `void(OSCMessage&)` handlers matches CNMAT ESP8266 API.
+- `OSCMessage::setAddress(const char*)` + `add(int)` + `send(Udp)` is the standard reply pattern.
+- `Udp.remoteIP()/remotePort()` valid after `parsePacket() > 0` — used inside that branch.
+- Biggest risk: `analogWrite` range on ESP8266 is 0-255 by default (unchanged assumption from original code).
+- **Bench test still required** (flash one node, send OSC from TD network COMP or python-osc) — can't run here.
 
-   | OSC command | Behavior (identical to prior text parser) |
-   |---|---|
-   | `position` | `getFloat(0)`; `motor.moveTo((long)(val * maxSteps))` |
-   | `intensity` | `getFloat(0)`; `targetIntensity = constrain(val*255, 0, 255)` |
-   | `move` | `getInt(0)`; `motor.move(val)` (relative, matched `=` handler) |
-   | `identify` | `identify()` |
-   | `calibrate` | `calibrate()` (sets `isCalibrating`, same as before) |
-   | `zero` | `motor.setCurrentPosition(0)` (same as `r` handler) |
-   | `stop` | `motor.stop()` (same as `z` handler) |
+## Verification
+Read-through check: every handler preserves the corresponding text-command behavior; all existing hardware logic (limit handling, intensity interpolation, calibration flags) preserved verbatim. No automated tests possible in this environment (C++/ESP8266, no toolchain) — hardware bench test is the covering verification.
 
-4. **`sendMaxPos`** — now emits real OSC `/light/<NODE_ID>/maxPos <int>`. The old
-   `sendMaxPos(char motorID, int pos)` literally printed a raw char (`'a'`) into the address;
-   the numeric `NODE_ID` replaces that. `maxSteps = motor.currentPosition()` capture on
-   `atMax` hit is unchanged.
-
-5. **`sendTrigger(which)`** (new) — emits `/light/<NODE_ID>/minTrigger|maxTrigger <1>` on the
-   corresponding limit-switch hit. `TD→node` status parser (`net_logic.parse_node_status`)
-   expects value 1 for triggers.
-
-## Preserved verbatim (unchanged)
-
-- All pins / `#define`s (motor, light, limit buttons).
-- `setup()`: WiFi config, `Udp.begin(9999)`, pin modes, `AccelStepper` max speed / accel.
-- `getMinMaxStatus()` + the `loop()` limit-switch stall logic (`atMin`→stop+re-zero,
-  `atMax`→stop+`maxSteps` capture).
-- `identify()` blink sequence and `calibrate()` flag logic (including the still-unconsumed
-  `isCalibrating`/`calibrationPhase` — same as the original, left as-is).
-- Intensity interpolation loop-increment and `analogWrite(LIGHT_PIN, intensity)`.
-- `serialEventRun()` / `serialEvent()` serial scaffolding (unused live, left intact).
-
-## Library additions
-
-None. Only existing includes are used: `OSCMessage.h`, `OSCBundle.h`, `OSCData.h`
-(the CNMAT OSC lib was already in the sketch's `#include`s and its commented `OSCBundle`
-path). No new deps required.
-
-## Semantics decisions
-
-- **Node id source:** the sketch had no explicit light id — only a static IP. Added
-  `#define NODE_ID 3` beside `IPAddress ip(...)`. The prior code hardcoded `'a'` in
-  `sendMaxPos`, so the id was never real; `NODE_ID` is the first correct numeric value.
-  Flashing N nodes means editing this define per node (matching how IP is edited today).
-- **position → steps:** the text `p` handler did `motor.moveTo(rawSteps)`; the TD spec wants
-  a 0–1 float. `0–1 * maxSteps` reproduces the old absolute-move semantics scaled by the
-  currently-known travel range. `maxSteps` defaults to `1000` and updates to the captured max
-  on the first `atMax` hit, exactly as the plain-text calibrate/max behavior did.
-- **Relative move:** spec has `move <int steps>`; mapped to `motor.move()` (the `=` handler).
-  The old `-` handler (negative move) is covered by sending a negative int to `move`.
-- **No-arg status format:** both `sendTrigger` and `sendMaxPos` send `/<addr> <int>`.
-  `parse_node_status` reads `maxPos` from `args[0]` and default-triggers to 1, so this is
-  TD-compatible.
-- **`/ping` broadcast:** ignored by the node address router (address doesn't match any
-  `routeOSC` command → no-op). Harmless.
-
-## Compile-risk notes
-
-- **Not compiled** (no Arduino toolchain in worktree). Verified by careful reading; the
-  structure is `includes → globals → setup → loop → helpers`, braces balanced, all declared
-  functions defined.
-- `constrain()` and `snprintf()` are available on ESP8266 (Arduino core + libc). `msg.add(int)`
-  and `msg.getFloat(int)`/`getInt(int)` are standard CNMAT `OSCMessage` API.
-- `outIp` uses `IPAddress(255,255,255,255)` — on ESP8266 UDP `beginPacket` to the broadcast
-  address requires the socket to have been `begin`ed on a nonzero port (it is: `localPort`).
-  If broadcast TX proves flaky on a given node, change `outIp` to the TD host's unicast IP and
-  re-flash — a one-line edit.
-- Watch: `#define NODE_ID` must match the IP-derived node each time a node is flashed.
+## Commit
+- `feat(firmware): OSC command interface in forestLight_wifi_v2`
+## Fix round 1 (reviewer findings)
+- maxTrigger now sent alongside maxPos on max-limit hit (spec violation fixed).
+- replyPort always = defaultReportPort (8899) with sender IP kept — remotePort() was the OSC Out DAT's ephemeral source port, not TD's listen port; whole node→TD path hinged on this.
+- constrain() added on intensity PWM mapping.
+- Report correction: serialEvent/serialEventRun were removed entirely (not "kept inert"); canonical commit is d4b7972 (0418a22 was a duplicate partial from a cancelled dispatch).
+- Bench test remains the load-bearing verification (OSCBundle::fill on bare messages + reply port behavior must be confirmed on hardware).

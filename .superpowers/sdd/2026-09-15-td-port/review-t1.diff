@@ -1,0 +1,124 @@
+# Review package: 29165cf6942ea4f3e648887fc3e846bc50bb1861..HEAD
+
+## Commits
+e79705d feat(td): project skeleton with externalized COMPs
+
+## Files changed
+ .../sdd/2026-09-15-td-port/task-1-report.md        | 33 ++++++++++++++++
+ td/README.md                                       | 44 ++++++++++++++++++++++
+ td/data/cameras.tsv                                |  1 +
+ td/data/tracks.tsv                                 |  1 +
+ td/externalizations.tsv                            |  1 +
+ 5 files changed, 80 insertions(+)
+
+## Diff
+diff --git a/.superpowers/sdd/2026-09-15-td-port/task-1-report.md b/.superpowers/sdd/2026-09-15-td-port/task-1-report.md
+new file mode 100644
+index 0000000..8ff2fb5
+--- /dev/null
++++ b/.superpowers/sdd/2026-09-15-td-port/task-1-report.md
+@@ -0,0 +1,33 @@
++# Task 1: TD project skeleton + Embody externalization
++
++## Status: DONE
++
++## Files created
++
++- `td/externalizations.tsv` — Embody ledger header row.
++- `td/data/tracks.tsv` — empty table with headers `id`, `sx`, `sy`, `ex`, `ey`, `ip`.
++- `td/data/cameras.tsv` — empty table with headers `id`, `enabled`, `tx`, `ty`, `tz`, `rx`, `ry`, `rz`, `scale`.
++- `td/project1/` — directory for externalized COMPs.
++- `td/README.md` — project layout, manual TD setup steps, open instructions.
++
++## What was not done
++
++- `td/theWoods.toe` and the five `.tox` files require TouchDesigner GUI operations; the brief explicitly cannot run TD. README contains the numbered steps.
++
++## Verification
++
++- `ls -la td/ td/data/ td/project1/` confirms directories and TSVs.
++- `cat td/data/tracks.tsv` and `cameras.tsv` confirm headers.
++- `cat td/externalizations.tsv` confirms ledger header.
++
++## Commit
++
++```bash
++git add td/
++git -c user.name="Jesse Garrison" -c user.email="jesse@nightlight.io" commit -m "feat(td): project skeleton with externalized COMPs"
++```
++
++## Concerns
++
++- `theWoods.toe` does not exist yet and cannot be created from the command line; user must follow the README steps.
++- `externalizations.tsv` is a header-only stub; Embody will populate rows once the COMPs are externalized in TD. The brief’s Step 3 says to add rows to `td/externalizations.tsv`; since the workflow is managed by Embody, a template header was written and the README instructs Embody to fill it.
+diff --git a/td/README.md b/td/README.md
+new file mode 100644
+index 0000000..d3ada92
+--- /dev/null
++++ b/td/README.md
+@@ -0,0 +1,44 @@
++# theWoods — TouchDesigner Port
++
++TD control app for the installation.
++
++## Layout
++
++```
++td/
++├── theWoods.toe        # project file (create in TD)
++├── externalizations.tsv # Embody externalization ledger
++├── project1/           # externalized COMPs
++│   ├── depthIn.tox
++│   ├── tracking.tox
++│   ├── trackUI.tox
++│   ├── control.tox
++│   └── network.tox
++└── data/
++    ├── tracks.tsv      # light track endpoints
++    └── cameras.tsv     # camera calibration
++```
++
++## Manual setup steps (TouchDesigner GUI)
++
++1. Open TouchDesigner.
++2. File → New Project → Save As `td/theWoods.toe`.
++3. File → Project Settings → FPS: set **60**.
++4. In the root (`/theWoods`), create five **Base COMPs**:
++   - `depthIn`
++   - `tracking`
++   - `trackUI`
++   - `control`
++   - `network`
++5. Externalize each COMP to `td/project1/<name>.tox`:
++   - Select the COMP.
++   - In the parameter dialog, set **External Tox** to `project1/<name>.tox` (e.g. `project1/depthIn.tox`).
++   - Set **Enable External Tox** to **On**.
++   - Set **Save Backup of External** to **Off**.
++6. Save the project.
++
++The `externalizations.tsv` ledger is managed by Embody as you externalize; stubs for the five COMPs can be added manually if needed before Embody is running.
++
++## Open
++
++Open `td/theWoods.toe` in TouchDesigner. Externalized COMPs restore from `td/project1/`.
+diff --git a/td/data/cameras.tsv b/td/data/cameras.tsv
+new file mode 100644
+index 0000000..0208f8b
+--- /dev/null
++++ b/td/data/cameras.tsv
+@@ -0,0 +1 @@
++id	enabled	tx	ty	tz	rx	ry	rz	scale
+diff --git a/td/data/tracks.tsv b/td/data/tracks.tsv
+new file mode 100644
+index 0000000..9f650b3
+--- /dev/null
++++ b/td/data/tracks.tsv
+@@ -0,0 +1 @@
++id	sx	sy	ex	ey	ip
+diff --git a/td/externalizations.tsv b/td/externalizations.tsv
+new file mode 100644
+index 0000000..618f9aa
+--- /dev/null
++++ b/td/externalizations.tsv
+@@ -0,0 +1 @@
++path	type	strategy	rel_file_path	timestamp	dirty	build	touch_build	node_x	node_y	node_color

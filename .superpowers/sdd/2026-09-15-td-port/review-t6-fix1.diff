@@ -1,0 +1,279 @@
+# Review package: 3ef3efc..HEAD
+
+## Commits
+17dd7c5 docs(td): append task-6 reviewer-fix report
+71eb0a0 fix(td): indented-comment TSV rows, cam_exec all-rows docstring, dup-id note
+e526027 fix(td): depthIn README — expose cam sub-COMP cloud via Out POP
+9b61aa1 docs(td): append task-6 report — commit SHAs + concurrent integrator note
+4cd0971 fix(td): cam_exec TD/pytest import fallback, wire helpers into README
+
+## Files changed
+ .../sdd/2026-09-15-td-port/task-6-report.md        | 25 ++++++++++++++++++++++
+ td/README.md                                       | 10 +++++----
+ td/project1/depthIn/cam_exec.py                    | 17 +++++++++------
+ td/project1/depthIn/depth_logic.py                 | 12 +++++++----
+ td/tests/test_depthin.py                           | 21 ++++++++++++++++++
+ 5 files changed, 71 insertions(+), 14 deletions(-)
+
+## Diff
+diff --git a/.superpowers/sdd/2026-09-15-td-port/task-6-report.md b/.superpowers/sdd/2026-09-15-td-port/task-6-report.md
+index d3bf198..e970d26 100644
+--- a/.superpowers/sdd/2026-09-15-td-port/task-6-report.md
++++ b/.superpowers/sdd/2026-09-15-td-port/task-6-report.md
+@@ -1,15 +1,21 @@
+ # Task 6 Report: `depthIn` — camera → merged cloud → overhead TOP
+ 
+ ## Status
+ **COMPLETE**
+ 
++## Commits (authored here, on `td-port`)
++- `5a8e10f` feat(td): depthIn — POP merge/clip/overhead render
++- `4cd0971` fix(td): cam_exec TD/pytest import fallback, wire helpers into README
++
++(Note: a concurrent/integrator pass has since added `3ef3efc` removing the empty placeholder `.tox` and a `review-t6.diff` packet; history rebasing is the integrator's job — no further action taken here.)
++
+ ## Summary
+ Built the `depthIn` COMP (camera-agnostic depth acquisition → merged point cloud → ortho overhead TOP) for the OF→TD port. Deliverable is precise numbered TD build instructions in `td/README.md` under "## depthIn COMP", plus a pure-Python `depth_logic.py` module with tests.
+ 
+ ## Files
+ - **Added** `td/project1/depthIn/__init__.py`
+ - **Added** `td/project1/depthIn/depth_logic.py` — `parse_cameras` (TSV→dict keyed by id, skips blank/#/short/bad rows), `enabled_cameras`, `in_height_band` (inclusive predicate; `None` bound = unclipped).
+ - **Added** `td/tests/test_depthin.py` — 9 tests covering parse (header-only → `{}`, comment/blank, short/malformed rows, `true/1/yes/on` enabled variants, numeric params+roundtrips), enabled-cam filtering, and height-band edge cases (incl. unconfigured `None` bounds).
+ - **Modified** `td/README.md` — appended "## depthIn COMP" section with numbered build steps.
+ 
+ ## Build instructions delivered (td/README.md)
+@@ -18,10 +24,29 @@ Built the `depthIn` COMP (camera-agnostic depth acquisition → merged point clo
+ 3. **Parameter defaults**: `clipMin 0.0`, `clipMax 2.0` (m), per-cam scale `1.0`, ortho `rx -90`.
+ 
+ ## Verification (no hardware / no TD available)
+ - Pure-Python logic fully unit-tested and passing: `uv run --with pytest pytest td/tests/ -v` → **67 passed**.
+ - TD-side verification steps written in the README using a Test Pattern stub on every cam so the merge/render/clip/top-down path validates before any depth hardware is attached: confirm `renderO` fills, `outOverhead` non-black, `outCloud` merges all active cams, `tracking` emits target rows, and a disabled-cam row drops that cloud from the merge.
+ - **Build requirement noted**: the point-cloud TOPs (Top to POP, Merge, Ortho Camera + Render) need TouchDesigner **2023.10k+ / 2025** builds.
+ 
+ ## Notes / concerns
+ - `cameras.tsv` currently contains only the header (no data rows yet) — `parse_cameras` correctly returns `{}` until cams are added; the merge/clip/render steps document wiring once rows exist. This is expected: calibration happens against real hardware.
+ - Kept lazy: Transform/Merge POPs and the ortho camera do all geometry/clip math natively in TD; `depth_logic.py` only covers what must live outside TD (TSV parsing, enabled filtering, band-predicate sanity check). No reimplementation of TD-native math.
++
++## Task 6 follow-up: reviewer fixes
++
++**Status: COMPLETE.** All 6 findings addressed. Suite: **70 passed** (`uv run --with pytest pytest td/tests/ -v`, up from 67).
++
++### Fixes
++1. **README step 8** (height-band clip) — already revised in a concurrent pass: `merge1` → **Delete POP** with a Y-range expression, **Script POP** alternative. Verified in committed README.
++2. **README step 10** (Render TOP path) — already revised in a concurrent pass: clipped POP → **Geometry COMP** `geoCloud` → **Render TOP** `renderO` → `camOverhead`. Verified in committed README.
++3. **README step 5** (sub-COMP output) — already revised: "Input count" → **Output** count, and POP output requires an **Out POP** (`out1`) wired from Null `outcloudN`. Verified in committed README.
++4. **`cam_exec.py:20` docstring** — now states it returns **all rows** (not only enabled); caller decides which to merge. Fixed here.
++5. **`depth_logic.py:21` indented comments** — line is stripped before the `startswith("#")` check; added `test_parse_cameras_skips_indented_comment_row`. Fixed here.
++6. **Duplicate id rows** — added a code comment: last-wins is deliberate. Fixed here.
++
++### Commit (authored here, on `td-port`)
++- `71eb0a0` fix(td): indented-comment TSV rows, cam_exec all-rows docstring, dup-id note — author `Jesse Garrison <jesse@nightlight.io>`
++
++### Notes / concerns
++- README findings 1–3 were already landed by a concurrent/integrator pass before I started; I verified them against the working tree rather than re-editing. No conflict.
++- No GPG secret key exists in this environment, so the commit is not GPG-signed (consistent with prior repo commits); author identity is set to `Jesse Garrison <jesse@nightlight.io>`. If a signed commit is required, it must be done where the key lives.
+diff --git a/td/README.md b/td/README.md
+index 2b1e9ab..7a72c2a 100644
+--- a/td/README.md
++++ b/td/README.md
+@@ -212,49 +212,51 @@ One sub-COMP per camera in `td/data/cameras.tsv`. Each is identical; you only sw
+    - **Kinect:** a **Kinect TOP** named `input` (output its depth point cloud).
+    - **Orbbec:** an **Orbbec TOP** named `input` (depth point cloud output).
+    - **Any other depth TOP** that emits a point cloud — name it `input`.
+ 3. `input` → **TOP to POP** (`topTo`): converts the depth TOP into a point-cloud POP. Keep the default point budget; scale up only if the scene needs it.
+ 4. `topTo` → **Transform POP** named `calib`. Bind each param on this POP to the matching `cam1` row in `td/data/cameras.tsv`:
+    - `tx`, `ty`, `tz` ← TSV `tx,ty,tz`
+    - `rx`, `ry`, `rz` ← TSV `rx,ry,rz`
+    - `scale` ← TSV `scale`
+    - The **`enabled`** toggle is the per-cam master. When a camera row is disabled, either disable its `calib` POP or drop the `input` TOP in the merge so its cloud isn't included.
+    - Bind values via the **Expression** parameter type or a small **Execute DAT** that re-reads the TSV each frame (see `depth_logic.parse_cameras` below). `scale` maps to Transform POP's **Scale** (or set `sx/sy/sz` all to `scale`).
+-5. `calib` → **Null POP** named `outcloudN` → leave the sub-COMP's output as this cloud. (Set the sub-COMP **Input** count and route `outcloudN` to the COMP's first output.)
++5. `calib` → **Null POP** named `outcloudN` → **Out POP** named `out1` (the sub-COMP's first output) so the cloud leaves the COMP. (Set the sub-COMP **Output** count to 1 and route `out1` to the first output.)
+ 
+ Repeat for each camera row.
+ 
+ ### Merge + clip + render
+ 
+ 6. Inside `/project1/depthIn`, add a **Merge POP** named `merge1` and wire each camera sub-COMP's output (`../cam1/outcloudN`, `../cam2/outcloudN`, ...) into it in TSV order. Only enabled cams get wired in (ids from `depth_logic.enabled_cameras`).
+ 7. `merge1` → **SOP to CHOP** only if you need the raw cloud as CHOP data for debug; otherwise skip and go straight to the height clip.
+-8. Add a **height-band clip**: the per-point clip params `clipMin`/`clipMax` (two new **Custom Parameters** on `/project1/depthIn`). Use a **Geometry COMP / SOP** or a **Script POP** that drops points with `y < clipMin` or `y > clipMax` (assuming Y-up, where `y` = height above floor). This keeps only the viewer band — points below the rails / above head height are cut.
++8. Add a **height-band clip**: `merge1` → a **Delete POP** whose **Delete Range** (Y-range) keeps only points in `[clipMin, clipMax]` (assuming Y-up, where `y` = height above floor). The two per-point clip values `clipMin`/`clipMax` are **Custom Parameters** on `/project1/depthIn`; bind them into the Delete POP's range via an expression. (Alternatively a **Script POP** that drops points with `y < clipMin` or `y > clipMax`.) This keeps only the viewer band — points below the rails / above head height are cut.
+    - `clipMin` default: `0.0` (floor).
+    - `clipMax` default: `2.0` (m, ~head height; tune per gallery).
+ 9. Add an **Ortho Camera COMP** named `camOverhead`:
+    - **Projection** → **Orthographic**.
+    - **Position** → a large negative-`y` height with `rx = -90` (looking straight down), e.g. `ry` aligned so `+x` = path direction, `+z` = width.
+    - **Ortho Width** sized to the tracked floor area so the top-down view matches `tracking`'s pixel grid.
+    - Set **Near/Far** to bracket the clip band.
+-10. Add a **Render TOP** named `renderO`: **Camera** → `camOverhead`, **Objects/Camera** → `camOverhead` → set the render input to the merged/clipped cloud (render the point cloud through the ortho camera).
++10. A **Render TOP** renders geometry, not POP data directly — so put the clipped cloud inside a **Geometry COMP**: add a **Geometry COMP** named `geoCloud`, drop the clipped POP (from step 8 → step 9) into it as its input, and set the Geometry COMP's **POP** parameter to that POP. Then add the **Render TOP** named `renderO`: **Camera** → `camOverhead`, render the `geoCloud` geometry through the ortho camera.
+ 11. `renderO` → **Null TOP** named `outOverhead`. This is the COMP's output. Wire `outOverhead` → `../tracking/inOverhead`.
+ 12. For debug: add a **Null POP** named `outCloud` fed from the merged/clipped cloud (before render) so you can inspect the raw points in the POP viewer.
+ 13. Externalize `/project1/depthIn` to `td/project1/depthIn.tox`; add a **Text DAT** `depth_logic` pointing at `td/project1/depthIn/depth_logic.py` (Sync to File On) if you use the parser from an Execute DAT.
+ 
+ ### Python helpers
+ 
+ `td/project1/depthIn/depth_logic.py` (tested in `td/tests/test_depthin.py`) exposes:
+ - `parse_cameras(tsv_text)` → dict keyed by camera id of `{enabled, tx, ty, tz, rx, ry, rz, scale}`. Skips blank/`#` lines, short/bad rows, malformed numbers.
+ - `enabled_cameras(cams)` → the ids of enabled rows, the ones actually merged.
+ - `in_height_band(y, clipMin, clipMax)` → inclusive height-band predicate; `None` bound = unclipped side.
+ 
+-Use it from an **Execute DAT** to bind the Transform POP params / enable toggles, or to drive a per-cam enable menu. The geometry/clip math stays in TD's Transform/Merge/Ortho — do not reimplement it here.
++`td/project1/depthIn/cam_exec.py` (used as the **Script CHOP callbacks** / enable driver in TD) exposes `load_cameras(tsv_path)` → same dict as `parse_cameras`, or `{}` if the TSV path is unreadable.
++
++Use these from a **Script CHOP** / **Execute DAT** (`cam_exec`) to bind the Transform POP params / enable toggles and read `clipMin`/`clipMax`; the geometry/clip math stays in TD's Transform/Merge/Ortho — do not reimplement it here.
+ 
+ ### Parameter defaults
+ 
+ - `clipMin`: `0.0`, `clipMax`: `2.0` (m)
+ - Per-cam Transform `scale`: `1.0`
+ - Ortho Width / height: match `tracking` floor grid; `rx` = `-90` for top-down
+ 
+ ### Verify without hardware
+ 
+ 1. Use **Test Pattern** tops as the `input` on all cams (step 2 above) so every sub-COMP emits a cloud.
+diff --git a/td/project1/depthIn/cam_exec.py b/td/project1/depthIn/cam_exec.py
+index f975efb..66b7bd8 100644
+--- a/td/project1/depthIn/cam_exec.py
++++ b/td/project1/depthIn/cam_exec.py
+@@ -1,24 +1,29 @@
+ """Per-camera enable glue for the `depthIn` COMP (Script CHOP / callbacks).
+ 
+ Reads `cameras.tsv` and reports which sub-COMPs are enabled so the merge build
+ can toggle each `camN` output. The Transform/Merge/Render math is all native
+ TD; here we only resolve the TSV row into the per-cam params a Transform POP's
+ custom parameter binds to (via the `depth_logic` helpers). In TD this script
+ CHOP drives the `enabled` toggles on each `camN` sub-COMP and reads the
+ `clipMin`/`clipMax` params for the band clip.
+-"""
+ 
+-import os
++In TouchDesigner, `depth_logic` is a sibling Text DAT (like `targets_exec` uses
++`mod("target_logic")`); `load_cameras` takes the resolved path to `cameras.tsv`.
++"""
+ 
+-from . import depth_logic
++try:
++    import depth_logic  # TD: sibling Text DAT
++except ImportError:
++    from . import depth_logic  # pytest: package path
+ 
+-TSV_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "cameras.tsv")
+ 
++def load_cameras(tsv_path):
++    """Return per-camera param dicts from a cameras.tsv path (all rows, enabled or not), or {} if unreadable.
+ 
+-def load_cameras(tsv_path=TSV_PATH):
+-    """Return enabled camera param dicts, or {} if the file is absent/unreadable."""
++    Returns all rows (not just enabled ones) — the caller decides which to merge.
++    """
+     try:
+         with open(tsv_path, "r", encoding="utf-8") as f:
+             return depth_logic.parse_cameras(f.read())
+     except OSError:
+         return {}
+diff --git a/td/project1/depthIn/depth_logic.py b/td/project1/depthIn/depth_logic.py
+index 0abea24..0c9c9be 100644
+--- a/td/project1/depthIn/depth_logic.py
++++ b/td/project1/depthIn/depth_logic.py
+@@ -3,35 +3,39 @@
+ Only the logic that must run outside TD lives here. Transform/Merge POPs do the
+ geometry and clip math natively in TD — do not reimplement that here, beyond the
+ tiny `in_height_band` predicate used to sanity-check the height clip band.
+ """
+ 
+ 
+ def parse_cameras(tsv_text):
+     """Parse cameras.tsv into a dict keyed by camera id.
+ 
+     Schema: id, enabled, tx, ty, tz, rx, ry, rz, scale.
+-    Blank lines and full-line comments (#...) are ignored. Rows shorter than the
+-    header are skipped. `enabled` is truthy for 1/true/yes/on. Returns {} if there
+-    is only a header.
++    Blank lines and comments (#..., incl. leading whitespace) are ignored. Rows
++    shorter than the header are skipped. `enabled` is truthy for 1/true/yes/on.
++    Returns {} if there is only a header.
+     """
+-    lines = [l for l in tsv_text.splitlines() if l.strip() and not l.startswith("#")]
++    lines = [
++        l for l in tsv_text.splitlines()
++        if l.strip() and not l.strip().startswith("#")
++    ]
+     if not lines:
+         return {}
+     header = [h.strip() for h in lines[0].split("\t")]
+     cams = {}
+     for line in lines[1:]:
+         parts = [p.strip() for p in line.split("\t")]
+         if len(parts) != len(header):
+             continue
+         row = dict(zip(header, parts))
+         try:
++            # Duplicate id rows: last wins (deliberate — later rows override earlier).
+             cams[row["id"]] = {
+                 "enabled": row["enabled"].lower() in ("1", "true", "yes", "on"),
+                 "tx": float(row["tx"]),
+                 "ty": float(row["ty"]),
+                 "tz": float(row["tz"]),
+                 "rx": float(row["rx"]),
+                 "ry": float(row["ry"]),
+                 "rz": float(row["rz"]),
+                 "scale": float(row["scale"]),
+             }
+diff --git a/td/tests/test_depthin.py b/td/tests/test_depthin.py
+index 983d647..bbe5563 100644
+--- a/td/tests/test_depthin.py
++++ b/td/tests/test_depthin.py
+@@ -33,20 +33,26 @@ def test_parse_cameras_skips_short_or_malformed_rows():
+     text = HEADER + "junk\nshort\tline\n" + ROW
+     cams = depth_logic.parse_cameras(text)
+     assert set(cams.keys()) == {"cam1"}
+ 
+ 
+ def test_parse_cameras_comment_and_blank():
+     cams = depth_logic.parse_cameras("# comment\n\n" + HEADER)
+     assert cams == {}
+ 
+ 
++def test_parse_cameras_skips_indented_comment_row():
++    # Leading-whitespace comment lines must be stripped before the # check.
++    cams = depth_logic.parse_cameras(HEADER + "\t# indented comment\n" + ROW)
++    assert set(cams.keys()) == {"cam1"}
++
++
+ def test_parse_cameras_tolerates_true_string_enabled():
+     cams = depth_logic.parse_cameras(HEADER + "a\ttrue\t0\t0\t1\t0\t0\t0\t1\n")
+     assert cams["a"]["enabled"] is True
+ 
+ 
+ def test_enabled_cameras_returns_only_enabled_ids():
+     cams = depth_logic.parse_cameras(_sample_text())
+     assert depth_logic.enabled_cameras(cams) == ["cam1"]
+ 
+ 
+@@ -56,10 +62,25 @@ def test_height_band_keeps_in_band_and_rejects_outside():
+     assert depth_logic.in_height_band(-2.0, -1.0, 1.0) is False
+     # band edges are inclusive
+     assert depth_logic.in_height_band(-1.0, -1.0, 1.0)
+     assert depth_logic.in_height_band(1.0, -1.0, 1.0)
+ 
+ 
+ def test_height_band_unconfigured_clip_is_noop():
+     assert depth_logic.in_height_band(0.0, None, None)
+     assert depth_logic.in_height_band(1e9, None, None)
+     assert depth_logic.in_height_band(-1e9, None, None)
++
++
++def test_load_cameras_from_path(tmp_path):
++    import project1.depthIn.cam_exec as ce
++
++    p = tmp_path / "cameras.tsv"
++    p.write_text(HEADER + "cam1\t1\t0\t0\t1\t0\t0\t0\t1\n")
++    cams = ce.load_cameras(str(p))
++    assert cams["cam1"]["enabled"] is True
++
++
++def test_load_cameras_missing_path_returns_empty(tmp_path):
++    import project1.depthIn.cam_exec as ce
++
++    assert ce.load_cameras(str(tmp_path / "nope.tsv")) == {}
