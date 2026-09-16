@@ -275,13 +275,12 @@ an operator-to-operator connection at the `/theWoods` root (or the path noted).
 2. `tracking.targets` (Table DAT) → `control` COMP input 0. Columns
    `label, x, y, influence, quiet, dying`.
 3. `trackUI.tracks` (Table DAT) → two places:
-   - `control` COMP input 1 (columns `id, sx, sy, ex, ey, ip`); alternatively point
-     `control` directly at `td/data/tracks.tsv`.
+   - `control` COMP input 1 (columns `id, sx, sy, ex, ey, ip`).
    - read by `network`'s `net_exec.py` directly via `op("../trackUI/tracks")` — no
      wire needed (Table DATs can't feed Script CHOP inputs).
 4. `control.lights` (Table DAT, `id, locationPercent, intensity`) → read by
    `network`'s `net_exec.py` via `op("../control/lights")` — no wire needed.
-5. `network.oscIn` Port = `8899` (the UDP port the nodes reply to). Set on the DAT
+5. `network.oscIn` Port = `8899` (the UDP port nodes report status to — firmware defaultReportPort). Set on the DAT
    directly; it is not a custom parameter.
 
 ### End-to-end verification (stub camera, no hardware)
