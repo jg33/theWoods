@@ -103,6 +103,51 @@ Inside `/project1/control` (a Base COMP), build this network to replicate the OF
 - Idle Highlight Min: `2` s
 - Idle Highlight Max: `10` s
 
+## trackUI COMP
+
+Inside `/project1/trackUI` (a Base COMP), build this performable track editor:
+
+1. Add a **Custom Parameter** page named `Edit`:
+   - Toggle `Edit` (default Off). When Off, drag handles are locked.
+2. Add a **Select TOP** named `background`:
+   - `TOP` → `../tracking/debug`
+3. Add a **Table DAT** named `tracks`:
+   - `File` → `../data/tracks.tsv`
+   - `Sync to File` → **On** (or write via script)
+   - Columns: `id, sx, sy, ex, ey, ip`
+4. Inside `/project1/trackUI`, add a **Text DAT** named `ui_logic` and point its `File` to `td/project1/trackUI/ui_logic.py`, **Sync to File** On.
+5. Add another **Text DAT** named `ui_exec` and point its `File` to `td/project1/trackUI/ui_exec.py`, **Sync to File** On.
+6. Add a **Panel CHOP** named `panelcook`:
+   - Parameter: **Callbacks DAT** → `ui_exec`
+   - Parameter: **Cook Type** → `Python`
+   - This CHOP drives the debounced TSV write and reads drag-handle position channels.
+7. Create the 8 light track endpoints as Panel CHOP drag channels. For each light `0..7`:
+   - Make two **Container COMPs** (or small Button/Panel components) as handles:
+     - `start0` ... `start7` (start handles)
+     - `end0` ... `end7` (end handles)
+   - Each handle must output its `x`/`y` position as a channel to `panelcook`, named `s<N>x`, `s<N>y` for start and `e<N>x`, `e<N>y` for end. TouchDesigner Panel CHOPs output channels named after the panel components; use the handle COMP `name` field to match these channel names.
+8. For each light, draw a connecting line between `startN` and `endN`:
+   - Option A: an **Add SOP** with two points → **Geometry COMP** → **Line MAT**.
+   - Option B: a **Line TOP** composite between the two handle panel positions.
+9. Add an **IP** parameter page or a small **Table DAT** named `ip` so the operator can edit node IP addresses. On change, write the new value to the `ip` cell in `tracks` and trigger a TSV save.
+10. On init / first cook:
+    - `ui_exec.py` calls `ui_logic.load_tracks()` from `td/data/tracks.tsv` and sets `tracks` DAT text.
+    - If `tracks.tsv` is empty, it falls back to 8 default tracks with IPs `192.168.0.100..107`.
+11. On drag / drop:
+    - `panelcook` reads the handle position channels.
+    - `ui_exec.py` updates the matching track row in the `tracks` DAT immediately.
+    - A `Debouncer` with a 0.5 s delay writes to `td/data/tracks.tsv` only after the user stops dragging.
+12. When the `Edit` toggle is Off, `ui_exec.py` ignores panel input; handles are not draggable.
+13. Externalize `/project1/trackUI` to `td/project1/trackUI.tox` and ensure `ui_logic.py` and `ui_exec.py` are saved as external files in `td/project1/trackUI/`.
+
+### Parameter defaults
+
+- `Edit`: Off
+- Debounce write: 0.5 s
+- Track default start: `[100, 100 + i * 80]`
+- Track default end: `[400, 100 + i * 80]`
+- Default IPs: `192.168.0.100` .. `192.168.0.107`
+
 ## Open
 
 Open `td/theWoods.toe` in TouchDesigner. Externalized COMPs restore from `td/project1/`.
