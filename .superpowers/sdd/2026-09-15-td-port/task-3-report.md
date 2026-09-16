@@ -41,6 +41,12 @@ Done.
 - `uv run --with ruff ruff check --select E,W,F --ignore F821,E722,E741,E501 td/project1/control/control_exec.py td/project1/control/light_logic.py td/tests/test_control.py td/project1/tracking/targets_exec.py td/project1/tracking/target_logic.py td/tests/test_tracking.py` → all passed.
 - `uv run --with mypy mypy --disable-error-code name-defined td/project1/control/control_exec.py td/project1/control/light_logic.py td/tests/test_control.py` → no issues.
 
+## Post-review fixes
+- **Important (line 247-259 / `onCook` `maxDistance` update):** Replaced loop-index lookup `Maxdistance{i}` with `Maxdistance{l['id']}` using a track-id lookup, so non-contiguous track IDs map to the correct per-light parameter.
+  - Added `test_max_distance_indexed_by_track_id` in `td/tests/test_control.py` using tracks with ids `0`, `3`, `7` and asserts each `maxDistance` lands on the matching light.
+- **Minor (light_logic.py:368-370):** Removed redundant first `mid` computation in `make_light`; only the midpoint average is kept.
+- **Minor (control_exec.py:268-271):** Added one-line comment clarifying that `t` and `elapsed` are both absolute wall-clock seconds from `scriptOp.time.seconds`, used for both noise phase and highlight timeout comparison.
+
 ## Concerns
 - `light_logic.py` uses an artificial noise fallback. In TD the build instructions describe wiring a real Noise CHOP to `control_exec.py` for a closer `ofNoise(t+id*6.66)` match.
 - `control_exec.py` references TD builtins (`me`, `op`, `mod`, `ui`) that only resolve inside TouchDesigner, as expected for glue code.
