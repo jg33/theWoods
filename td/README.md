@@ -196,6 +196,73 @@ Inside `/project1/network` (a Base COMP), build the OSC I/O: outbound position/i
 | node→TD | `/light/<n>/maxPos` | int |
 | TD→Max/UE | same `/light/*` messages | mirrored stream |
 
+## depthIn COMP
+
+`/project1/depthIn` turns camera-agnostic depth sources into a merged, calibrated point cloud and renders a top-down overhead TOP for `tracking`. Build it in this exact order.
+
+> **Build requirement:** the merge/clip path uses TOPs that read POPs (`Merge TOP` + `Ortho Camera COMP` + `Render TOP`). Point clouds and POP TOPs need TouchDesigner **2023.10k or newer** (2025 builds also fine). Older builds won't show the `Merge`/`Render` TOP options for point clouds.
+
+### Per-camera sub-COMP (`cam1`, `cam2`, ...)
+
+One sub-COMP per camera in `td/data/cameras.tsv`. Each is identical; you only swap the input TOP.
+
+1. Add a **Base COMP** named `cam1` (and `cam2`, ... one per row in the TSV).
+2. Inside `/project1/depthIn/cam1` add the **camera-agnostic input TOP** (swap point). This is the only node you change per camera:
+   - **No hardware yet (use now):** a **Test Pattern TOP** named `input` (e.g. *Fbm Noise* / *Ramp* / *Rainbow*).
+   - **Kinect:** a **Kinect TOP** named `input` (output its depth point cloud).
+   - **Orbbec:** an **Orbbec TOP** named `input` (depth point cloud output).
+   - **Any other depth TOP** that emits a point cloud — name it `input`.
+3. `input` → **TOP to POP** (`topTo`): converts the depth TOP into a point-cloud POP. Keep the default point budget; scale up only if the scene needs it.
+4. `topTo` → **Transform POP** named `calib`. Bind each param on this POP to the matching `cam1` row in `td/data/cameras.tsv`:
+   - `tx`, `ty`, `tz` ← TSV `tx,ty,tz`
+   - `rx`, `ry`, `rz` ← TSV `rx,ry,rz`
+   - `scale` ← TSV `scale`
+   - The **`enabled`** toggle is the per-cam master. When a camera row is disabled, either disable its `calib` POP or drop the `input` TOP in the merge so its cloud isn't included.
+   - Bind values via the **Expression** parameter type or a small **Execute DAT** that re-reads the TSV each frame (see `depth_logic.parse_cameras` below). `scale` maps to Transform POP's **Scale** (or set `sx/sy/sz` all to `scale`).
+5. `calib` → **Null POP** named `outcloudN` → leave the sub-COMP's output as this cloud. (Set the sub-COMP **Input** count and route `outcloudN` to the COMP's first output.)
+
+Repeat for each camera row.
+
+### Merge + clip + render
+
+6. Inside `/project1/depthIn`, add a **Merge POP** named `merge1` and wire each camera sub-COMP's output (`../cam1/outcloudN`, `../cam2/outcloudN`, ...) into it in TSV order. Only enabled cams get wired in (ids from `depth_logic.enabled_cameras`).
+7. `merge1` → **SOP to CHOP** only if you need the raw cloud as CHOP data for debug; otherwise skip and go straight to the height clip.
+8. Add a **height-band clip**: the per-point clip params `clipMin`/`clipMax` (two new **Custom Parameters** on `/project1/depthIn`). Use a **Geometry COMP / SOP** or a **Script POP** that drops points with `y < clipMin` or `y > clipMax` (assuming Y-up, where `y` = height above floor). This keeps only the viewer band — points below the rails / above head height are cut.
+   - `clipMin` default: `0.0` (floor).
+   - `clipMax` default: `2.0` (m, ~head height; tune per gallery).
+9. Add an **Ortho Camera COMP** named `camOverhead`:
+   - **Projection** → **Orthographic**.
+   - **Position** → a large negative-`y` height with `rx = -90` (looking straight down), e.g. `ry` aligned so `+x` = path direction, `+z` = width.
+   - **Ortho Width** sized to the tracked floor area so the top-down view matches `tracking`'s pixel grid.
+   - Set **Near/Far** to bracket the clip band.
+10. Add a **Render TOP** named `renderO`: **Camera** → `camOverhead`, **Objects/Camera** → `camOverhead` → set the render input to the merged/clipped cloud (render the point cloud through the ortho camera).
+11. `renderO` → **Null TOP** named `outOverhead`. This is the COMP's output. Wire `outOverhead` → `../tracking/inOverhead`.
+12. For debug: add a **Null POP** named `outCloud` fed from the merged/clipped cloud (before render) so you can inspect the raw points in the POP viewer.
+13. Externalize `/project1/depthIn` to `td/project1/depthIn.tox`; add a **Text DAT** `depth_logic` pointing at `td/project1/depthIn/depth_logic.py` (Sync to File On) if you use the parser from an Execute DAT.
+
+### Python helpers
+
+`td/project1/depthIn/depth_logic.py` (tested in `td/tests/test_depthin.py`) exposes:
+- `parse_cameras(tsv_text)` → dict keyed by camera id of `{enabled, tx, ty, tz, rx, ry, rz, scale}`. Skips blank/`#` lines, short/bad rows, malformed numbers.
+- `enabled_cameras(cams)` → the ids of enabled rows, the ones actually merged.
+- `in_height_band(y, clipMin, clipMax)` → inclusive height-band predicate; `None` bound = unclipped side.
+
+Use it from an **Execute DAT** to bind the Transform POP params / enable toggles, or to drive a per-cam enable menu. The geometry/clip math stays in TD's Transform/Merge/Ortho — do not reimplement it here.
+
+### Parameter defaults
+
+- `clipMin`: `0.0`, `clipMax`: `2.0` (m)
+- Per-cam Transform `scale`: `1.0`
+- Ortho Width / height: match `tracking` floor grid; `rx` = `-90` for top-down
+
+### Verify without hardware
+
+1. Use **Test Pattern** tops as the `input` on all cams (step 2 above) so every sub-COMP emits a cloud.
+2. Confirm `/project1/depthIn/renderO` shows a filled overhead image and `outOverhead` is non-black.
+3. Confirm `outCloud` (POP viewer) shows the merged points from all active cams.
+4. `tracking` should now receive `inOverhead` and, after its own threshold/blob path, emit target rows.
+5. With one cam in the TSV set `enabled=0`, the merge must drop it (no cloud contribution) — validates the per-cam enable wiring.
+
 ## Open
 
 Open `td/theWoods.toe` in TouchDesigner. Externalized COMPs restore from `td/project1/`.
