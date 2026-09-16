@@ -265,6 +265,87 @@ Use these from a **Script CHOP** / **Execute DAT** (`cam_exec`) to bind the Tran
 4. `tracking` should now receive `inOverhead` and, after its own threshold/blob path, emit target rows.
 5. With one cam in the TSV set `enabled=0`, the merge must drop it (no cloud contribution) — validates the per-cam enable wiring.
 
+## Integration checklist
+
+Cross-COMP wiring (performed once in TD after building all five COMPs; each source
+in `td/project1/`):
+
+1. **depthIn → tracking:** wire `depthIn/outOverhead` (Null TOP) → `tracking/inOverhead`.
+2. **tracking → control:** wire `tracking/targets` (Table DAT) → `control/targets` input 0.
+3. **trackUI → control:** wire `trackUI/tracks` (Table DAT) → `control/tracks` input 1. (Control can instead read `td/data/tracks.tsv` directly, but the live editor route keeps drags live.)
+4. **trackUI → network:** the network `sendcook` reads `../trackUI/tracks` by path — confirm `trackUI/tracks` exists and holds 8 rows (`id, sx, sy, ex, ey, ip`).
+5. **control → network:** confirm `control/lights` (Table DAT) exists with columns `id, locationPercent, intensity`; `sendcook` reads `../control/lights` by path.
+6. **network → OSC in:** set `network/oscIn` **Port** to the listen port (default `8899`); ensure it matches the nodes' report port.
+
+### End-to-end verification (stub camera, no hardware)
+
+Run the full chain from a synthetic input with no real cameras or nodes:
+
+1. **Stub camera:** set every `depthIn/camN/input` TOP to a **Test Pattern TOP** (e.g. Fbm Noise / Ramp / Rainbow) so each sub-COMP emits a point cloud. `outOverhead` must show a filled non-black overhead image.
+2. **Tracking:** confirm `tracking/targets` emits rows (`label, x, y, influence, quiet, dying`) once thresholds/blobs lock onto the test pattern.
+3. **Control:** confirm `control/lights` fills with 8 rows (`id, locationPercent, intensity`).
+4. **Network out:** confirm `sendcook`/`null1` shows a `sent` channel ticking and OSC actually leaves the box. With no nodes, set the unicast/mirror IPs to `127.0.0.1` and watch the listener below.
+5. **Network in:** send a fake node status and confirm `network/nodeStatus` updates (see `onReceiveOSC`).
+
+**To hear the OSC the app sends**, run this in a terminal (requires `python-osc`):
+
+```bash
+uv run --with python-osc python -m pythonosc.osc_udp_server 127.0.0.1 9999
+```
+
+You should see `/light/<n>/position` and `/light/<n>/intensity` floats (plus `/ping`)
+arriving at 30 Hz per light. Point `control`/`network` params at `127.0.0.1` if no nodes
+are live yet.
+
+## Integration checklist
+
+Cross-COMP wiring — do these once when the `.toe` is first assembled. Each step is
+an operator-to-operator connection at the `/theWoods` root (or the path noted).
+
+1. `depthIn.outOverhead` → `tracking.inOverhead`. The overhead TOP (merged, clipped,
+   ortho-rendered point cloud) is `tracking`'s only input.
+2. `tracking.targets` (Table DAT) → `control` COMP input 0. Columns
+   `label, x, y, influence, quiet, dying`.
+3. `trackUI.tracks` (Table DAT) → two places:
+   - `control` COMP input 1 (columns `id, sx, sy, ex, ey, ip`); alternatively point
+     `control` directly at `td/data/tracks.tsv`.
+   - read by `network`'s `net_exec.py` directly via `op("../trackUI/tracks")` — no
+     wire needed (Table DATs can't feed Script CHOP inputs).
+4. `control.lights` (Table DAT, `id, locationPercent, intensity`) → read by
+   `network`'s `net_exec.py` via `op("../control/lights")` — no wire needed.
+5. `network.oscIn` Port = `8899` (the UDP port the nodes reply to). Set on the DAT
+   directly; it is not a custom parameter.
+
+### End-to-end verification (stub camera, no hardware)
+
+1. **Stub camera:** in `depthIn`, put a **Test Pattern TOP** as the `input` on every
+   `camN` sub-COMP (Fbm Noise / Ramp / Rainbow) so each emits a cloud. `outOverhead`
+   renders non-black.
+2. **Tracking:** confirm `tracking` emits rows in `targets` (threshold → Blob Track →
+   `targetscook`). Blobs on the test pattern should appear as target rows.
+3. **Control:** confirm `control.lights` populates with `locationPercent`/`intensity`
+   per light from the `tracks` + `targets` inputs.
+4. **Network (out):** with `sendcook` cooking, run a python-osc listener on the node
+   port and confirm `/light/<n>/position|intensity` messages arrive:
+
+   ```bash
+   uv run --with python-osc python -c \
+     "from pythonosc.dispatcher import Dispatcher; from pythonosc.osc_server import BlockingOSCUDPServer
+d=Dispatcher(); d.map('*', lambda a,*args: print(a, args)); BlockingOSCUDPServer(('127.0.0.1', 9999), d).serve_forever()"
+   ```
+
+   (Run inside `td/` so `uv` resolves; the listener prints every OSC message. Point an
+   `oscOut` unicast at `127.0.0.1:9999` if tracks lack node IPs.)
+
+5. **Network (in):** send a fake node status to `network.oscIn`:
+
+   ```bash
+   uv run --with python-osc python -c \
+     "from pythonosc.udp_client import SimpleUDPClient; c=SimpleUDPClient('127.0.0.1', 8899); c.send_message('/light/0/maxTrigger', [])"
+   ```
+
+   Confirm `network.nodeStatus` gains a `(id, status, value)` row.
+
 ## Open
 
 Open `td/theWoods.toe` in TouchDesigner. Externalized COMPs restore from `td/project1/`.
