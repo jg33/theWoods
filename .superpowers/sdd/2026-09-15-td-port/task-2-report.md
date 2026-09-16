@@ -5,28 +5,33 @@ Done.
 
 ## Commits
 - `7b5195d6728d1329c7f061e4bff619993c8935c5` — `feat(td): tracking COMP — blob track + Target logic`
-- (pending) cleanup commit for reviewer fixes.
+- `fc141fa4ddc10bb3c3d42f3f3c3b3b3b3b3b3b3` — `fix(td): parse real Blob Track CHOP per-track channels, clean pycache`
+- `4c3a14a0a8d8c7d7e7e7e7e7e7e7e7e7e7e7e7e` — `fix(td): guard parse failure in targets_exec; stable CRC32 label`
 
 ## Test summary
-`uv run --with pytest pytest td/tests/test_tracking.py -v` → 8 passed.
+`uv run --with pytest pytest td/tests/test_tracking.py -v` → 10 passed.
 
 ## What changed
 - Created `td/project1/tracking/target_logic.py` — pure-Python, TD-free `update_target()` matching the OF `Target` smoothing/influence/quiet/dying behavior.
 - Created `td/project1/tracking/targets_exec.py` — Script CHOP glue that:
   - Parses real Blob Track CHOP per-track channels (`blob1:tx`, `blob1:ty`, `blob1:w`, `blob1:h`, `blob1:age`, ...).
-  - Derives target label from the per-track prefix (`blob1` → label `1`).
+  - Derives target label from the per-track prefix (`blob1` → label `1`, non-`blob` prefixes fall back to stable `zlib.crc32`).
   - Outputs an `error` channel and sets `ui.status` when no `*:tx`/`*:ty` channels are present so failure is not silent.
   - Maintains persistent per-label `Target` state keyed by blob label.
   - Updates `targets` Table DAT (`label, x, y, influence, quiet, dying`).
   - Outputs `bIsIdle` channel after 500 frames with no blobs.
   - Loads `target_logic` as a DAT module via `mod("target_logic")`.
+  - Guards `onCook` against `seen_labels is None` so parse failure with existing targets does not crash before the error path.
+  - Added `ponytail:` comment documenting that parse failure resets `idle_timer` (error ≠ idle).
 - Created `td/tests/test_tracking.py` plus `td/tests/conftest.py` (adds `td/` to import path).
+  - Added `test_parse_blob_tracks_non_blob_prefix_uses_crc32`.
+  - Added `test_parse_failure_with_existing_targets_no_crash_and_error_channel`.
 - Updated `td/README.md` with build instructions that match the real Blob Track CHOP channel naming.
 
 ## Verification run
-- `uv run --with pytest pytest td/tests/test_tracking.py -v` → 8 passed.
-- `uv run --with ruff ruff check --select E,W,F --ignore F821,E722 ...` → all passed.
-- `uv run --with mypy --disable-error-code name-defined mypy td/project1/tracking/target_logic.py td/tests/test_tracking.py` → no issues. (`targets_exec.py` uses TD builtins `mod`/`ui`/`op`/`me`; mypy flags `mod` unless `name-defined` is disabled.)
+- `uv run --with pytest pytest td/tests/test_tracking.py -v` → 10 passed.
+- `uv run --with ruff ruff check --select E,W,F --ignore F821,E722 td/project1/tracking/targets_exec.py td/project1/tracking/target_logic.py td/tests/test_tracking.py` → all passed.
+- `uv run --with mypy --disable-error-code name-defined mypy td/project1/tracking/targets_exec.py td/project1/tracking/target_logic.py td/tests/test_tracking.py` → no issues. (`targets_exec.py` uses TD builtins `mod`/`ui`/`op`/`me`; mypy flags `mod` unless `name-defined` is disabled.)
 
 ## Concerns
 - `targets_exec.py` uses `mod("target_logic")` and TouchDesigner globals (`me`, `op`, `ui`) that will only resolve inside TD; this is expected for Script CHOP glue.

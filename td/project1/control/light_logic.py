@@ -54,8 +54,6 @@ def make_light(id_, start, end, max_distance=DEFAULT_MAX_DISTANCE):
     """Create a fresh light state dict matching the OF Light constructor."""
     start = [float(start[0]), float(start[1])]
     end = [float(end[0]), float(end[1])]
-    mid = _closest_point_on_segment([0.0, 0.0], start, end)  # midpoint = t=0.5
-    # midpoint on segment: average works because projection above for (0,0) is not t=0.5
     mid = [(start[0] + end[0]) * 0.5, (start[1] + end[1]) * 0.5]
     return {
         "id": id_,

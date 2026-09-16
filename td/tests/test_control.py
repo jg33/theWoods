@@ -178,3 +178,77 @@ def test_update_idle_highlight_picks_one():
     # No second pick if one is already active
     became = control_exec._update_idle_highlight(l2, 0.0, 2.0, 10.0, True)
     assert became is False
+
+
+def test_max_distance_indexed_by_track_id():
+    """Per-light MaxDistance must follow track/light id, not loop index."""
+    from project1.control import control_exec
+
+    # Patch TD globals so onCook can run outside TouchDesigner.
+    control_exec.light_logic = light_logic
+    control_exec.me = type("me", (), {"time": type("time", (), {"rate": 60})()})()
+    control_exec.op = None
+
+    tracks_dat = _MockDat([
+        ["id", "sx", "sy", "ex", "ey", "ip"],
+        ["0", "0", "0", "100", "0", "192.168.0.100"],
+        ["3", "100", "0", "100", "100", "192.168.0.103"],
+        ["7", "200", "0", "200", "100", "192.168.0.107"],
+    ])
+
+    class _MockPar:
+        Manualstate = 0.0
+        Bisidle = False
+        Idlehighlightmin = 2.0
+        Idlehighlightmax = 10.0
+        Maxdistance0 = 100.0
+        Maxdistance3 = 200.0
+        Maxdistance7 = 300.0
+
+        def __getattr__(self, name):
+            if name.startswith("Maxdistance"):
+                return 300.0
+            raise AttributeError(name)
+
+    class _MockScriptOp:
+        def __init__(self):
+            self._stored = {}
+            self.inputs = [None, tracks_dat]
+            self.par = _MockPar()
+            self.time = type("time", (), {"seconds": 0.0})()
+            self.rate = 60
+            self.numSamples = 1
+
+        def fetch(self, key, default):
+            return self._stored.get(key, default)
+
+        def store(self, key, value):
+            self._stored[key] = value
+
+        def clear(self):
+            pass
+
+        def appendChan(self, name):
+            return [0.0]
+
+    scriptOp = _MockScriptOp()
+    control_exec.onCook(scriptOp)
+
+    lights = scriptOp.fetch("lights", [])
+    assert len(lights) == 3
+    by_id = {l["id"]: l for l in lights}
+    assert by_id[0]["maxDistance"] == 100.0
+    assert by_id[3]["maxDistance"] == 200.0
+    assert by_id[7]["maxDistance"] == 300.0
+
+    # Change the parameters and re-cook to verify the update path as well.
+    scriptOp.par.Maxdistance0 = 111.0
+    scriptOp.par.Maxdistance3 = 222.0
+    scriptOp.par.Maxdistance7 = 333.0
+    control_exec.onCook(scriptOp)
+
+    lights = scriptOp.fetch("lights", [])
+    by_id = {l["id"]: l for l in lights}
+    assert by_id[0]["maxDistance"] == 111.0
+    assert by_id[3]["maxDistance"] == 222.0
+    assert by_id[7]["maxDistance"] == 333.0

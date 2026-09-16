@@ -140,14 +140,18 @@ def onCook(scriptOp):
             )
             lights.append(light_logic.make_light(tr["id"], tr["start"], tr["end"], max_d))
 
-    # Update per-light maxDistance from parameters
-    for i, l in enumerate(lights):
-        if i < len(tracks):
-            par = getattr(scriptOp.par, f"Maxdistance{i}", None)
+    # Update per-light maxDistance from parameters, keyed by light id so
+    # non-contiguous track IDs still map to the right parameter.
+    id_to_track = {tr["id"]: tr for tr in tracks}
+    for l in lights:
+        track = id_to_track.get(l["id"])
+        if track is not None:
+            par = getattr(scriptOp.par, f"Maxdistance{l['id']}", None)
             if par is not None:
                 l["maxDistance"] = float(par)
 
-    # Time for noise and highlight timeouts
+    # t = absolute time (seconds) for the noise function; elapsed = same here because
+    # we use wall-clock time for both noise phase and highlight timeout comparison.
     t = scriptOp.time.seconds if hasattr(scriptOp, "time") else 0.0
     elapsed = scriptOp.time.seconds if hasattr(scriptOp, "time") else 0.0
     min_time = float(scriptOp.par.Idlehighlightmin) if hasattr(scriptOp.par, "Idlehighlightmin") else 2.0
