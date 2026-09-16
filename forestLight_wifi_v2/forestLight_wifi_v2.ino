@@ -23,14 +23,19 @@ char pass[] = "d33pd4rk";                    // your network password
 
 // A UDP instance to let us send and receive packets over UDP
 WiFiUDP Udp;
-const IPAddress outIp(10,40,10,105);        // remote IP (not needed for receive)
-const unsigned int outPort = 9999;          // remote port (not needed for receive)
-const unsigned int localPort = 8888;        // local port to listen for UDP packets (here's where we send the packets)
+// TD network COMP: sendcook unicasts commands to each node on Nodeport (9999),
+// so we listen here; we report status back to TD's oscIn Listenport (8899).
+const IPAddress outIp(255,255,255,255);        // broadcast: TD oscIn receives on any host
+const unsigned int outPort = 8899;          // TD oscIn Listenport (our reports go here)
+const unsigned int localPort = 9999;        // TD Nodeport (TD->node commands arrive here)
 
 // Update these with values suitable for your network.
 IPAddress ip(192,168,0,103);  //Node static IP
 IPAddress gateway(192,168,0,1);
 IPAddress subnet(255,255,255,0);
+
+// This node's light index in the TD map (/light/<n>/...). Set per-node.
+#define NODE_ID 3
 
 OSCErrorCode error;
 //unsigned int ledState = LOW;              // LOW means led is *on*
@@ -107,45 +112,19 @@ void setup() {
 void loop() {
 
   // handle OSC //
-  OSCBundle bundle;
+  OSCMessage msg;
   int size = Udp.parsePacket();
 
   if (size > 0) {
-    int n = Udp.read(packetBuffer, sizeof(packetBuffer) - 1);
-    if (n > 0) {
-      packetBuffer[n] = '\0';
-      Serial.println("Contents:");
-      String _msg = String(packetBuffer);
-      Serial.println(_msg);
-      parseCommand(_msg);
+    while (size--) {
+      msg.fill(Udp.read());
     }
-    
-//    while (size--) {
-//      bundle.fill(Udp.read());
-//    }
-//    if (!bundle.hasError()) {
-//       //bundle.decode();
-//       Serial.println("got msg");
-//       Serial.println(bundle.size());
-//
-//      //bundle.dispatch("/led", led);
-//      if(bundle.size()>0){
-//        OSCMessage thisMsg;
-//        thisMsg = bundle.getOSCMessage(0);
-//        char addressBuff[200];
-//   //   thisMsg.getAddress(addressBuff,0);
-//      String msgString = "blank";//addressBuff;
-////      msgString += " ";
-////      msgString += String(thisMsg.getInt(0));
-//      //parseCommand(msgString);
-//        Serial.println(msgString);
-//
-//      }
-//    } else {
-//      //error = bundle.getError();
-//      Serial.print("error: ");
-//      //Serial.println(error);
-//    }
+    if (!msg.hasError()) {
+      routeOSC(msg);
+    } else {
+      Serial.print("OSC error");
+    }
+    msg.empty();
   }
 
   //deal with serial, if not calibrating
@@ -166,10 +145,11 @@ void loop() {
   if (atMin && movingTowardMin) {
      motor.stop();
      motor.setCurrentPosition(0);
+     sendTrigger("minTrigger");
   } else if (atMax && movingTowardMax) {
      motor.stop();
      maxSteps = motor.currentPosition();
-     sendMaxPos('a', maxSteps);
+     sendMaxPos(maxSteps);
   } else {
      motor.run();
   }
@@ -195,53 +175,34 @@ void loop() {
 
 
 /////
-void parseCommand(String msg){
-  Serial.println("/debug parsing");
-  char msgArray[128];
-  msg.toCharArray(msgArray,128);
-  char cmd = msgArray[0];
-  Serial.print("/debug/command ");
-  Serial.println(cmd);
-  
-  if(cmd=='i'){ 
-    //intensity
-    signed int val = msg.substring(1,msg.length()).toInt();
-    targetIntensity = val;
-    ////Serial.println("/debug/intensity "+ String(val));
-    
-  } else if(cmd=='p'){ 
-    //position
-     String stringVal = msg.substring(1, msg.length());
-     ////Serial.println("/debug "+stringVal);
-     
-     long val = stringVal.toInt();
-     ////Serial.println("/debug "+ val);
+void routeOSC(OSCMessage &msg){
+  char addrBuff[128];
+  msg.getAddress(addrBuff);
+  String addr = String(addrBuff);
+  String prefix = "/light/";
+  prefix += String(NODE_ID);
+  prefix += "/";
+  String cmd = addr.substring(prefix.length());
 
-     motor.moveTo(val);
-     //Serial.println("/debug/position "+String(val));
-     
-  } else if(cmd=='x'){
-    //identify
-    Serial.println("identify");
-
-    identify();
-    
-  } else if (cmd=='-'){
-    String stringVal = msg.substring(1, msg.length());
-    long val = stringVal.toInt();
-    motor.move(-val);
-    
-  } else if (cmd=='='){
-    String stringVal = msg.substring(1, msg.length());
-    long val = stringVal.toInt();
-    motor.move(val);
-
-  } else if (cmd=='c'){
-    calibrate(); 
-  } else if (cmd=='r'){
-    motor.setCurrentPosition(0);
-  } else if (cmd =='z'){
-     motor.stop(); 
+  // TD sends /light/<n>/position <float 0-1> ; stepper move to arg * maxPos
+  if (cmd.equals("position")) {
+     float val = msg.getFloat(0);
+     motor.moveTo((long)(val * maxSteps));
+  } else if (cmd.equals("intensity")) {
+     // float 0-1 -> LED PWM 0-255
+     float val = msg.getFloat(0);
+     targetIntensity = (int)constrain(val * 255.0, 0, 255);
+  } else if (cmd.equals("identify")) {
+     identify();
+  } else if (cmd.equals("move")) {
+     long val = msg.getInt(0);
+     motor.move(val);
+  } else if (cmd.equals("calibrate")) {
+     calibrate();
+  } else if (cmd.equals("zero")) {
+     motor.setCurrentPosition(0);
+  } else if (cmd.equals("stop")) {
+     motor.stop();
   }
 
   yield();
@@ -284,12 +245,26 @@ void calibrate(){
 
 ///////
 
-void sendMaxPos(char motorID, int pos){
+void sendMaxPos(int pos){
+    OSCMessage msg;
+    char addr[64];
+    snprintf(addr, sizeof(addr), "/light/%d/maxPos", NODE_ID);
+    msg.setAddress(addr);
+    msg.add(pos);
     Udp.beginPacket(outIp, outPort);
-    Udp.print("/light/");
-    Udp.print(motorID);
-    Udp.print("/maxPos ");
-    Udp.print(pos);
+    msg.send(Udp);
+    Udp.endPacket();
+}
+
+// Report a limit-switch hit ("minTrigger"/"maxTrigger") back to TD.
+void sendTrigger(const char* which){
+    OSCMessage msg;
+    char addr[64];
+    snprintf(addr, sizeof(addr), "/light/%d/%s", NODE_ID, which);
+    msg.setAddress(addr);
+    msg.add(1);
+    Udp.beginPacket(outIp, outPort);
+    msg.send(Udp);
     Udp.endPacket();
 }
 
