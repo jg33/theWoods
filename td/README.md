@@ -219,7 +219,7 @@ One sub-COMP per camera in `td/data/cameras.tsv`. Each is identical; you only sw
    - `scale` ← TSV `scale`
    - The **`enabled`** toggle is the per-cam master. When a camera row is disabled, either disable its `calib` POP or drop the `input` TOP in the merge so its cloud isn't included.
    - Bind values via the **Expression** parameter type or a small **Execute DAT** that re-reads the TSV each frame (see `depth_logic.parse_cameras` below). `scale` maps to Transform POP's **Scale** (or set `sx/sy/sz` all to `scale`).
-5. `calib` → **Null POP** named `outcloudN` → leave the sub-COMP's output as this cloud. (Set the sub-COMP **Input** count and route `outcloudN` to the COMP's first output.)
+5. `calib` → **Null POP** named `outcloudN` → **Out POP** named `out1` (the sub-COMP's first output) so the cloud leaves the COMP. (Set the sub-COMP **Output** count to 1 and route `out1` to the first output.)
 
 Repeat for each camera row.
 
@@ -227,7 +227,7 @@ Repeat for each camera row.
 
 6. Inside `/project1/depthIn`, add a **Merge POP** named `merge1` and wire each camera sub-COMP's output (`../cam1/outcloudN`, `../cam2/outcloudN`, ...) into it in TSV order. Only enabled cams get wired in (ids from `depth_logic.enabled_cameras`).
 7. `merge1` → **SOP to CHOP** only if you need the raw cloud as CHOP data for debug; otherwise skip and go straight to the height clip.
-8. Add a **height-band clip**: the per-point clip params `clipMin`/`clipMax` (two new **Custom Parameters** on `/project1/depthIn`). Use a **Geometry COMP / SOP** or a **Script POP** that drops points with `y < clipMin` or `y > clipMax` (assuming Y-up, where `y` = height above floor). This keeps only the viewer band — points below the rails / above head height are cut.
+8. Add a **height-band clip**: `merge1` → a **Delete POP** whose **Delete Range** (Y-range) keeps only points in `[clipMin, clipMax]` (assuming Y-up, where `y` = height above floor). The two per-point clip values `clipMin`/`clipMax` are **Custom Parameters** on `/project1/depthIn`; bind them into the Delete POP's range via an expression. (Alternatively a **Script POP** that drops points with `y < clipMin` or `y > clipMax`.) This keeps only the viewer band — points below the rails / above head height are cut.
    - `clipMin` default: `0.0` (floor).
    - `clipMax` default: `2.0` (m, ~head height; tune per gallery).
 9. Add an **Ortho Camera COMP** named `camOverhead`:
@@ -235,7 +235,7 @@ Repeat for each camera row.
    - **Position** → a large negative-`y` height with `rx = -90` (looking straight down), e.g. `ry` aligned so `+x` = path direction, `+z` = width.
    - **Ortho Width** sized to the tracked floor area so the top-down view matches `tracking`'s pixel grid.
    - Set **Near/Far** to bracket the clip band.
-10. Add a **Render TOP** named `renderO`: **Camera** → `camOverhead`, **Objects/Camera** → `camOverhead` → set the render input to the merged/clipped cloud (render the point cloud through the ortho camera).
+10. A **Render TOP** renders geometry, not POP data directly — so put the clipped cloud inside a **Geometry COMP**: add a **Geometry COMP** named `geoCloud`, drop the clipped POP (from step 8 → step 9) into it as its input, and set the Geometry COMP's **POP** parameter to that POP. Then add the **Render TOP** named `renderO`: **Camera** → `camOverhead`, render the `geoCloud` geometry through the ortho camera.
 11. `renderO` → **Null TOP** named `outOverhead`. This is the COMP's output. Wire `outOverhead` → `../tracking/inOverhead`.
 12. For debug: add a **Null POP** named `outCloud` fed from the merged/clipped cloud (before render) so you can inspect the raw points in the POP viewer.
 13. Externalize `/project1/depthIn` to `td/project1/depthIn.tox`; add a **Text DAT** `depth_logic` pointing at `td/project1/depthIn/depth_logic.py` (Sync to File On) if you use the parser from an Execute DAT.
