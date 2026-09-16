@@ -81,18 +81,15 @@ def test_debouncer_resets_on_new_ping():
     assert d.check(now=base + 1.0) is True
 
 
-def test_pending_write_flushes_then_stays_flushed_without_edit_gate():
-    # Regression: ui_exec runs debouncer.check() every cook, before the Edit guard,
-    # so a pending write flushes even when Edit toggles off. After that single flush
-    # the debouncer must not re-fire on later cooks until a new ping, or the edit-off
-    # path would write the TSV every frame. The Debouncer is not edit-aware: flushing
-    # depends only on elapsed time.
+def test_flushed_debouncer_rearms_on_new_ping():
+    # Companion to test_debouncer_flushes_pending_write_once_even_with_no_further_pings:
+    # after the edit-off flush the debouncer must not re-fire on later cooks, but a new
+    # drag (Edit toggled back on) re-arms it for another single write.
     d = ui_logic.Debouncer(delay=0.5)
     base = 1000.0
     d.ping(now=base)
-    assert d.check(now=base + 0.5001) is True          # the late flush (edit off)
-    for t in (base + 0.6, base + 0.7, base + 2.0):     # subsequent cooks stay idle
-        assert d.check(now=t) is False
+    assert d.check(now=base + 0.5001) is True          # the edit-off flush
+    assert d.check(now=base + 2.0) is False            # stays idle on later cooks
     d.ping(now=base + 2.0)                              # a new drag re-arms it
     assert d.check(now=base + 2.5001) is True
 

@@ -58,14 +58,18 @@ Done. Fixed three review findings; added a regression test; suite green.
   - Moved the `debouncer.check()` flush block **above** the `if not bool(scriptOp.par.Edit): return` guard in `onCook`, so a pending write flushes even when Edit toggles off (previously the early return dropped it).
   - Removed the dead functions: `handle_id`, `parse_handle_id`, `find_nearest_handle`, `update_track_from_handle` (and the now-unused `HANDLE_THRESHOLD`).
 - `td/tests/test_trackui.py` — removed the tests for the deleted dead functions; added
-  `test_pending_write_flushes_then_stays_flushed_without_edit_gate`, a regression at the
-  `Debouncer` level asserting a due ping flushes exactly once and stays quiescent on
-  subsequent cooks (no per-frame rewrite on the edit-off path) until re-armed by a new ping.
-  The flush ordering itself lives in `ui_exec.py` glue (not importable outside TD); the
-  debouncer invariant that ordering relies on is the tested surface.
+  `test_flushed_debouncer_rearms_on_new_ping` (regression): after the edit-off flush a later
+  cook stays idle, but a new drag re-arms the debouncer for another single write. A concurrent
+  edit added the complementary `test_debouncer_flushes_pending_write_once_even_with_no_further_pings`.
+- `td/tests/test_trackui_exec.py` — glue-regression test added by concurrent work:
+  `test_pending_debounce_flushes_when_edit_off` stubs `op`/`project` and calls `ui_exec.onCook`
+  with Edit off and a due debounce, asserting a pending TSV write still fires (and the debouncer
+  is reset so it isn't re-fired every cook). `test_edit_off_blocks_panel_input` asserts no write
+  when nothing is pending.
 - `td/README.md` — trackUI Table DAT `File` param `../data/tracks.tsv` → `data/tracks.tsv`
   (relative to the `.toe` in `td/`), with a clarifying comment that it resolves to `td/data/tracks.tsv`.
 
 ### Test summary
 
-`uv run --with pytest pytest td/tests/ -v` → **35 passed** (was 34; +1 regression, −dead-func tests).
+`uv run --with pytest pytest td/tests/ -v` → **38 passed** (base 34; removed dead-func tests,
+added debouncer flush regressions at the logic level and the onCook glue level).
