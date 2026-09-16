@@ -11,8 +11,8 @@ if "net_logic" not in globals():
 
 
 def onSetupParameters(scriptOp):
-    # Outbound routing + mirrors.
-    scriptOp.appendParFloat("Listenport", label="Listen Port", defaultValue=8899)
+    # Outbound routing + mirrors. (Listen port is set directly on the oscIn DAT,
+    # not here.)
     scriptOp.appendParInt("Sendrate", label="Send Rate (Hz)", defaultValue=30)
     scriptOp.appendParInt("Nodeport", label="Node Port", defaultValue=9999)
     scriptOp.appendParToggle("Mirrormax", label="Mirror Max")
@@ -29,8 +29,11 @@ def onPulse(par):
 
 
 # --------------------------------------------------------------------------
-# Outbound: Script CHOP (`sendcook`). Input 0 = lights DAT
-# (`id, locationPercent, intensity`), input 1 = tracks DAT (node IPs).
+# Outbound: Script CHOP (`sendcook`). Reads the lights DAT
+# (`id, locationPercent, intensity`) from `../control/lights` and the tracks
+# DAT (node IPs) from `../trackUI/tracks` directly — Table DATs cannot be wired
+# into Script CHOP inputs (CHOP inlets accept CHOP family only), so we look
+# them up with op() instead of reading scriptOp.inputs.
 # Sends `/light/<n>/position|intensity` unicast to each node's IP (from tracks),
 # rate-limited <=30Hz per light, plus mirrors to Max/Unreal listen ports.
 # --------------------------------------------------------------------------
@@ -60,6 +63,10 @@ def _parse_lights(lights_dat):
                 "intensity": float(lights_dat[row, 2]),
             })
         except (ValueError, IndexError):
+            try:
+                debug("net: skipping malformed lights row %d" % row)
+            except NameError:
+                pass
             continue
     return rows
 
@@ -75,6 +82,11 @@ def _tracks_by_id(tracks_dat):
         try:
             by_id[int(tracks_dat[row, 0])] = str(tracks_dat[row, 5])
         except (ValueError, IndexError):
+            # Drop malformed light row but log it so bad data isn't silent.
+            try:
+                debug("Dropping malformed light row %d" % row)
+            except Exception:
+                pass
             continue
     return by_id
 
@@ -84,9 +96,10 @@ def onCook(scriptOp):
         scriptOp.numSamples = 0
         return
 
-    inputs = scriptOp.inputs
-    lights_dat = inputs[0] if len(inputs) > 0 else None
-    tracks_dat = inputs[1] if len(inputs) > 1 else None
+    # Script CHOP inlets accept only CHOP-family inputs, so the lights/tracks
+    # Table DATs are referenced directly rather than wired in as inputs.
+    lights_dat = op("../control/lights") if op else None
+    tracks_dat = op("../trackUI/tracks") if op else None
     lights = _parse_lights(lights_dat)
     ip_by_id = _tracks_by_id(tracks_dat)
 
@@ -107,7 +120,8 @@ def onCook(scriptOp):
         for address, args in net_logic.node_messages(lid, light["locationPercent"], light["intensity"]):
             if osc_out is not None:
                 # Unicast to this node: point the OSC Out DAT at its IP.
-                osc_out.par.hostname = ip
+                osc_out.par.address = ip
+                osc_out.par.port = int(getattr(scriptOp.par, "Nodeport", 9999))
                 osc_out.sendOSC(address, args)
             _mirror(scriptOp, osc_out_bcast, address, args)
 
@@ -116,14 +130,17 @@ def onCook(scriptOp):
     last_ping = scriptOp.fetch("last_ping", 0.0)
     if now - last_ping >= net_logic.PING_INTERVAL:
         scriptOp.store("last_ping", now)
-        address, args = net_logic.ping_message(int(now))
+        seq = scriptOp.fetch("ping_seq", 0) + 1
+        scriptOp.store("ping_seq", seq)
+        address, args = net_logic.ping_message(seq)
         if osc_out_bcast is not None:
-            osc_out_bcast.par.hostname = "255.255.255.255"
+            osc_out_bcast.par.address = "255.255.255.255"
             osc_out_bcast.par.port = int(getattr(scriptOp.par, "Nodeport", 9999))
             osc_out_bcast.sendOSC(address, args)
         elif osc_out is not None:
             for ip in ip_by_id.values():
-                osc_out.par.hostname = ip
+                osc_out.par.address = ip
+                osc_out.par.port = int(getattr(scriptOp.par, "Nodeport", 9999))
                 osc_out.sendOSC(address, args)
 
     scriptOp.numSamples = 1
@@ -141,7 +158,7 @@ def _mirror(scriptOp, osc_out_bcast, address, args):
     if bool(scriptOp.par.Mirrorunreal):
         targets.append((str(scriptOp.par.Mirrorunrealip), int(scriptOp.par.Mirrorunrealport)))
     for host, port in targets:
-        osc_out_bcast.par.hostname = host
+        osc_out_bcast.par.address = host
         osc_out_bcast.par.port = port
         osc_out_bcast.sendOSC(address, args)
 
@@ -151,7 +168,7 @@ def _mirror(scriptOp, osc_out_bcast, address, args):
 # --------------------------------------------------------------------------
 
 
-def onReceiveOSC(dat, row, tags, time, address, args):
+def onReceiveOSC(dat, rowIndex, message, bytes, timeStamp, address, args, peer):
     if net_logic is None:
         return
     status = net_logic.parse_node_status(address, args)
@@ -160,7 +177,9 @@ def onReceiveOSC(dat, row, tags, time, address, args):
     log = dat.fetch("status_log", None)
     if log is None:
         log = {}
-    log[status["id"]] = status
+    # Key by (id, status) so a later report for the same status overwrites its
+    # row but distinct statuses for one node are kept alongside each other.
+    log[(status["id"], status["status"])] = status
     dat.store("status_log", log)
     _write_node_status(dat, log)
 
