@@ -16,6 +16,10 @@ def update_target(t, measured_x, measured_y, seen):
     else:
         t["influence"] -= 0.001
         t["dying"] = True
+    # ponytail: OF latches bIsQuiet until a move breaks it; we recompute each
+    # frame from quiet_timer, so a quiet target can exit QUIET on one big move.
+    # That matches OF's timer-reset behavior closely enough; latch explicitly
+    # only if QUIET flapping shows up in the gallery.
     t["quiet"] = t["quiet_timer"] > 300
     t["ready_to_die"] = t["influence"] <= 0
     t["influence"] = max(0.0, t["influence"])

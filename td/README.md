@@ -84,7 +84,7 @@ Inside `/project1/control` (a Base COMP), build this network to replicate the OF
 1. Add a **Script CHOP** named `controlcook`:
    - Parameter: **Callbacks DAT** → the sibling Text DAT `control_exec.py`
    - Parameter: **Cook Type** → `Python`
-   - Note: `controlcook` reads the targets and tracks Table DATs directly by path (`../../tracking/targets`, `../../trackUI/tracks`) inside `control_exec.py` — do **not** add COMP inputs or wire DATs into the CHOP (CHOP inlets accept CHOP family only). `op()` resolves relative to the `/project1/control` COMP, so sibling refs are `../X` and cross-COMP lookups are `../../X`.
+   - Note: `controlcook` reads the targets and tracks Table DATs directly by path (`../../tracking/targets`, `../../trackUI/tracks`) inside `control_exec.py` — do **not** add COMP inputs or wire DATs into the CHOP (CHOP inlets accept CHOP family only). `op()` resolves relative to the script DAT's own location, so sibling refs are `../X` and cross-COMP lookups are `../../X`.
 2. Inside `/project1/control`, add a **Text DAT** named `light_logic` and point its `file` parameter to `td/project1/control/light_logic.py`, **Sync to File** On.
 3. Add another **Text DAT** named `control_exec` and point its `file` parameter to `td/project1/control/control_exec.py`, **Sync to File** On. In the `controlcook` Script CHOP **Callbacks DAT** field, set it to `control_exec`.
 4. Inside `/project1/control`, add a **Table DAT** named `lights` (columns will be set at runtime: `id, locationPercent, intensity`).
