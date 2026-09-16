@@ -4,15 +4,6 @@ import tempfile
 from project1.trackUI import ui_logic
 
 
-def test_handle_id_round_trip():
-    assert ui_logic.handle_id(3, True) == "s3"
-    assert ui_logic.handle_id(3, False) == "e3"
-    assert ui_logic.parse_handle_id("s3") == (3, True)
-    assert ui_logic.parse_handle_id("e3") == (3, False)
-    assert ui_logic.parse_handle_id("x3") is None
-    assert ui_logic.parse_handle_id("") is None
-
-
 def test_make_default_tracks_has_eight_lights():
     tracks = ui_logic.make_default_tracks()
     assert len(tracks) == 8
@@ -33,33 +24,6 @@ def test_track_to_row_and_back():
         "ip": "10.0.0.1",
     }
     assert ui_logic.row_to_track(row) == track
-
-
-def test_find_nearest_handle_within_threshold():
-    tracks = ui_logic.make_default_tracks()
-    tracks[0]["start"] = [0.0, 0.0]
-    tracks[0]["end"] = [100.0, 0.0]
-    assert ui_logic.find_nearest_handle(5.0, 1.0, tracks, threshold=10.0) == "s0"
-    assert ui_logic.find_nearest_handle(105.0, 0.0, tracks, threshold=10.0) == "e0"
-
-
-def test_find_nearest_handle_outside_threshold_returns_none():
-    tracks = ui_logic.make_default_tracks()
-    tracks[0]["start"] = [0.0, 0.0]
-    assert ui_logic.find_nearest_handle(200.0, 0.0, tracks, threshold=10.0) is None
-
-
-def test_update_track_from_handle_moves_start():
-    tracks = ui_logic.make_default_tracks()
-    track = ui_logic.update_track_from_handle(tracks, "s0", 12.0, 34.0)
-    assert track is tracks[0]
-    assert track["start"] == [12.0, 34.0]
-
-
-def test_update_track_from_handle_moves_end():
-    tracks = ui_logic.make_default_tracks()
-    track = ui_logic.update_track_from_handle(tracks, "e7", 99.0, 88.0)
-    assert track["end"] == [99.0, 88.0]
 
 
 def test_save_and_load_tracks_round_trip():
@@ -93,6 +57,20 @@ def test_debouncer_requires_delay_after_last_ping():
     assert d.check(now=base + 0.6) is False
 
 
+def test_debouncer_flushes_pending_write_once_even_with_no_further_pings():
+    # Regression: a pending debounced write must still flush when the Edit flag
+    # toggles off (ui_exec runs `debouncer.check()` before the Edit guard), i.e.
+    # the flush is driven purely by the debouncer and never needs another event.
+    d = ui_logic.Debouncer(delay=0.5)
+    base = 1000.0
+    d.ping(now=base)
+    # edit just turned off, no more drag events — check() fires exactly once.
+    assert d.check(now=base + 0.6) is True
+    # follow-up cooks (edit still off) must not re-write.
+    assert d.check(now=base + 0.7) is False
+    assert d.check(now=base + 1.0) is False
+
+
 def test_debouncer_resets_on_new_ping():
     d = ui_logic.Debouncer(delay=0.5)
     base = 1000.0
@@ -101,6 +79,22 @@ def test_debouncer_resets_on_new_ping():
     d.ping(now=base + 0.49)
     assert d.check(now=base + 0.99) is False
     assert d.check(now=base + 1.0) is True
+
+
+def test_pending_write_flushes_then_stays_flushed_without_edit_gate():
+    # Regression: ui_exec runs debouncer.check() every cook, before the Edit guard,
+    # so a pending write flushes even when Edit toggles off. After that single flush
+    # the debouncer must not re-fire on later cooks until a new ping, or the edit-off
+    # path would write the TSV every frame. The Debouncer is not edit-aware: flushing
+    # depends only on elapsed time.
+    d = ui_logic.Debouncer(delay=0.5)
+    base = 1000.0
+    d.ping(now=base)
+    assert d.check(now=base + 0.5001) is True          # the late flush (edit off)
+    for t in (base + 0.6, base + 0.7, base + 2.0):     # subsequent cooks stay idle
+        assert d.check(now=t) is False
+    d.ping(now=base + 2.0)                              # a new drag re-arms it
+    assert d.check(now=base + 2.5001) is True
 
 
 def test_tracks_to_dat_text_and_back():

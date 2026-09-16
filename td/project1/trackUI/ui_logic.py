@@ -4,28 +4,7 @@ import os
 import time
 
 NUM_LIGHTS = 8
-HANDLE_THRESHOLD = 50.0
 DEBOUNCE_SECONDS = 0.5
-
-
-def handle_id(light_id, is_start):
-    """Return a stable string handle id."""
-    suffix = "s" if is_start else "e"
-    return f"{suffix}{light_id}"
-
-
-def parse_handle_id(handle_id):
-    """Parse a handle id back into (light_id, is_start)."""
-    if not handle_id or len(handle_id) < 2:
-        return None
-    suffix = handle_id[0]
-    if suffix not in ("s", "e"):
-        return None
-    try:
-        light_id = int(handle_id[1:])
-    except ValueError:
-        return None
-    return (light_id, suffix == "s")
 
 
 def _default_ip(light_id):
@@ -105,38 +84,6 @@ def _mkdir_for(path):
     dir_ = os.path.dirname(path)
     if dir_:
         os.makedirs(dir_, exist_ok=True)
-
-
-def find_nearest_handle(x, y, tracks, threshold=HANDLE_THRESHOLD):
-    """Return the handle id of the nearest start/end to (x, y) within threshold."""
-    best = None
-    best_dist = float("inf")
-    for track in tracks:
-        light_id = track["id"]
-        for is_start, point in ((True, track["start"]), (False, track["end"])):
-            dist = ((point[0] - x) ** 2 + (point[1] - y) ** 2) ** 0.5
-            if dist < best_dist:
-                best_dist = dist
-                best = handle_id(light_id, is_start)
-    if best is not None and best_dist <= threshold:
-        return best
-    return None
-
-
-def update_track_from_handle(tracks, handle_id, x, y):
-    """Move the handle's endpoint to (x, y). Mutates the matching track."""
-    parsed = parse_handle_id(handle_id)
-    if parsed is None:
-        return None
-    light_id, is_start = parsed
-    for track in tracks:
-        if track["id"] == light_id:
-            if is_start:
-                track["start"] = [float(x), float(y)]
-            else:
-                track["end"] = [float(x), float(y)]
-            return track
-    return None
 
 
 class Debouncer:

@@ -12,7 +12,7 @@ if "ui_logic" not in globals():
         ui_logic = None
 
 
-_TRACKS_PATH = "../data/tracks.tsv"
+_TRACKS_PATH = "data/tracks.tsv"
 _NUM_LIGHTS = 8
 
 
@@ -52,7 +52,7 @@ def _resolve_path(scriptOp):
 
 
 def _write_tracks_dat(scriptOp, tracks):
-    dat = op("../tracks") if op else None
+    dat = op("../tracks")
     if dat is None:
         return
     text = ui_logic.tracks_to_dat_text(tracks)
@@ -73,6 +73,12 @@ def onCook(scriptOp):
     # Panel CHOP cooks every frame; we use it to run the debouncer check.
     tracks, debouncer = _get_state(scriptOp)
 
+    # Debounced write to TSV after drag ends (0.5s after last change).
+    # Runs before the Edit guard so a pending write is never lost when Edit toggles off.
+    if debouncer.check():
+        _write_tracks_tsv(scriptOp, tracks)
+        _set_state(scriptOp, tracks, ui_logic.Debouncer())
+
     # If edit is off, ignore drag input entirely (the handles can still render but don't move).
     if not bool(scriptOp.par.Edit):
         return
@@ -86,11 +92,6 @@ def onCook(scriptOp):
             debouncer.ping()
             _set_state(scriptOp, tracks, debouncer)
             _write_tracks_dat(scriptOp, tracks)
-
-    # Debounced write to TSV after drag ends (0.5s after last change).
-    if debouncer.check():
-        _write_tracks_tsv(scriptOp, tracks)
-        _set_state(scriptOp, tracks, ui_logic.Debouncer())
 
     return
 

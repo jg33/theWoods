@@ -112,7 +112,7 @@ Inside `/project1/trackUI` (a Base COMP), build this performable track editor:
 2. Add a **Select TOP** named `background`:
    - `TOP` → `../tracking/debug`
 3. Add a **Table DAT** named `tracks`:
-   - `File` → `../data/tracks.tsv`
+   - `File` → `data/tracks.tsv` (relative to the `.toe`, so this resolves to `td/data/tracks.tsv`)
    - `Sync to File` → **On** (or write via script)
    - Columns: `id, sx, sy, ex, ey, ip`
 4. Inside `/project1/trackUI`, add a **Text DAT** named `ui_logic` and point its `File` to `td/project1/trackUI/ui_logic.py`, **Sync to File** On.
