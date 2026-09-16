@@ -148,6 +148,55 @@ Inside `/project1/trackUI` (a Base COMP), build this performable track editor:
 - Track default end: `[400, 100 + i * 80]`
 - Default IPs: `192.168.0.100` .. `192.168.0.107`
 
+## network COMP
+
+Inside `/project1/network` (a Base COMP), build the OSC I/O: outbound position/intensity to the nodes, mirrors to Max + Unreal, and inbound node status.
+
+1. Inside `/project1/network`, add a **Text DAT** named `net_logic` and point its `File` to `td/project1/network/net_logic.py`, **Sync to File** On.
+2. Add another **Text DAT** named `net_exec` and point its `File` to `td/project1/network/net_exec.py`, **Sync to File** On.
+3. Add a **Script CHOP** named `sendcook`:
+   - Parameter: **Callbacks DAT** → `net_exec`
+   - Parameter: **Cook Type** → `Python`
+   - Connect two inputs: Input 0 = `../control/lights` Table DAT (`id, locationPercent, intensity`), Input 1 = `../trackUI/tracks` Table DAT (`id, sx, sy, ex, ey, ip`).
+4. Add an **OSC Out DAT** named `oscOut`:
+   - **Network** → `UDP`
+   - `Host`/`Network` parameters are set per-light by `net_exec.py` from `tracks` IPs; per-node send port is `Nodeport` (default `9999`).
+   - In `net_exec.py`, the unicast block sets `oscOut.par.hostname = ip` then calls `oscOut.sendOSC(address, args)`.
+5. Add a second **OSC Out DAT** named `oscOutBcast` for the mirrors + `/ping`:
+   - `Host` → `255.255.255.255`, `Port` → set per-target by `net_exec.py`.
+   - `net_exec.py` `_mirror()` re-sends each outgoing `/light/*` message to the Max and Unreal listen IP/ports when `mirrorMax`/`mirrorUnreal` are on. The `/ping` heartbeat (1s) also goes out this DAT.
+6. `sendcook` → a **Null CHOP** named `null1` to expose the `sent` channel (debug).
+7. Add an **OSC In DAT** named `oscIn`:
+   - **Network** → `UDP`
+   - **Port** → `Listenport` (default `8899`)
+   - **Callbacks** → the sibling Text DAT `net_exec.py` (the DAT's `onReceiveOSC` callback).
+   - Node reports `/light/<n>/minTrigger`, `/light/<n>/maxTrigger`, `/light/<n>/maxPos <int>` are parsed by `net_logic.parse_node_status()` and logged.
+8. Add a **Table DAT** named `nodeStatus` — columns are set at runtime by `net_exec.py` (`id, status, value`); this is the inbound liveness/limit-status output.
+9. Inside `/project1/network`, add the **Custom Parameters** page (declared in `onSetupParameters`): `Listenport`, `Sendrate`, `Nodeport`, `Mirrormax`/`Mirrormaxip`/`Mirrormaxport`, `Mirrorunreal`/`Mirrorunrealip`/`Mirrorunrealport`.
+10. Optional 30 Hz pacing: rather than relying only on per-cook `should_send()`, you can drive `sendcook` with a **Timer CHOP** at `Sendrate` Hz; the `LightThrottle` still caps bursts regardless.
+11. Externalize `/project1/network` to `td/project1/network.tox` and ensure `net_logic.py` and `net_exec.py` are saved as external files in `td/project1/network/`.
+
+### Parameter defaults
+
+- Listen Port: `8899`
+- Send Rate: `30` Hz (ceiling)
+- Node Port: `9999`
+- Mirror Max: Off — IP `192.168.0.200`, port `9999`
+- Mirror Unreal: Off — IP `192.168.0.210`, port `9998`
+
+### OSC contract
+
+| Direction | Address | Args |
+|-----------|---------|------|
+| TD→node | `/light/<n>/position` | float 0–1 |
+| TD→node | `/light/<n>/intensity` | float 0–1 |
+| TD→node | `/light/<n>/identify|calibrate|zero|stop` | — |
+| TD→node | `/light/<n>/move` | int steps |
+| TD→all | `/ping` | int (1s heartbeat) |
+| node→TD | `/light/<n>/minTrigger|maxTrigger` | — |
+| node→TD | `/light/<n>/maxPos` | int |
+| TD→Max/UE | same `/light/*` messages | mirrored stream |
+
 ## Open
 
 Open `td/theWoods.toe` in TouchDesigner. Externalized COMPs restore from `td/project1/`.
