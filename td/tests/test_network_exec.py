@@ -1,6 +1,7 @@
 """Glue-level regression test for `net_exec.onCook`: the light-rate throttle
 must gate ONCE per light, so both the position and intensity messages are
-sent on a change (not just the first, which would consume the send slot).
+sent on a change (not just the first, which would consume the send slot); and
+the OSC Out DAT's address/port are set for each unicast send.
 """
 
 import types
@@ -44,9 +45,8 @@ class _MockOscOut:
 
 
 class _MockScriptOp:
-    def __init__(self, lights_dat, tracks_dat, sent_op):
+    def __init__(self):
         self._stored = {}
-        self.inputs = [lights_dat, tracks_dat]
         self.par = types.SimpleNamespace(
             Sendrate=30,
             Nodeport=9999,
@@ -58,7 +58,6 @@ class _MockScriptOp:
             Mirrorunrealport=9998,
         )
         self.time = types.SimpleNamespace(seconds=0.0)
-        self.sent_op = sent_op
         self.numSamples = 0
 
     def fetch(self, key, default=None):
@@ -76,52 +75,18 @@ def _run_onCook(monkeypatch, lights_rows, tracks_rows):
 
     osc_out = _MockOscOut()
     osc_out_bcast = _MockOscOut()
-
-    def fake_op(name):
-        if name == "../oscOut":
-            return osc_out
-        if name == "../oscOutBcast":
-            return osc_out_bcast
-        if name == "../control/lights":
-            return _MockDat(lights_rows)
-        if name == "../trackUI/tracks":
-            return _MockDat(tracks_rows)
-        return None
-
+    dats = {
+        "../oscOut": osc_out,
+        "../oscOutBcast": osc_out_bcast,
+        "../control/lights": _MockDat(lights_rows),
+        "../trackUI/tracks": _MockDat(tracks_rows),
+    }
     monkeypatch.setattr(net_exec, "net_logic", net_logic, raising=False)
-    monkeypatch.setattr(net_exec, "op", fake_op, raising=False)
+    monkeypatch.setattr(net_exec, "op", lambda name: dats[name], raising=False)
 
-    scriptOp = _MockScriptOp(osc_out, osc_out_bcast)
+    scriptOp = _MockScriptOp()
     net_exec.onCook(scriptOp)
     return osc_out
-
-
-class _MockScriptOp:
-    def __init__(self, sent_op, bcast_op):
-        self._stored = {}
-        self.inputs = []
-        self.par = types.SimpleNamespace(
-            Sendrate=30,
-            Nodeport=9999,
-            Mirrormax=False,
-            Mirrormaxip="127.0.0.1",
-            Mirrormaxport=9999,
-            Mirrorunreal=False,
-            Mirrorunrealip="127.0.0.1",
-            Mirrorunrealport=9998,
-        )
-        self.time = types.SimpleNamespace(seconds=0.0)
-        self.sent_op = sent_op
-        self.numSamples = 0
-
-    def fetch(self, key, default=None):
-        return self._stored.get(key, default)
-
-    def store(self, key, value):
-        self._stored[key] = value
-
-    def appendChan(self, name):
-        return [0.0]
 
 
 def test_single_cook_sends_both_position_and_intensity(monkeypatch):
@@ -144,20 +109,20 @@ def test_single_cook_sends_both_position_and_intensity(monkeypatch):
     assert osc_out.sent[1] == ("/light/3/intensity", [0.25])
 
 
-def test_send_sets_unicast_address_and_port(monkeypatch):
-    """Regression (finding 5): the unicast OSC Out DAT must have both the node
-    address and the Nodeport set before each send — the port was never applied
-    before."""
+def test_unicast_sets_address_and_port(monkeypatch):
+    """Regression: the OSC Out DAT is pointed at the node's IP and Nodeport
+    before each send (uses .par.address, not .par.hostname)."""
     osc_out = _run_onCook(
         monkeypatch,
         [
             ["id", "locationPercent", "intensity"],
-            ["3", "0.5", "0.25"],
+            ["7", "0.2", "0.8"],
         ],
         [
             ["id", "sx", "sy", "ex", "ey", "ip"],
-            ["3", "0", "0", "100", "0", "192.168.0.103"],
+            ["7", "0", "0", "50", "0", "192.168.0.107"],
         ],
     )
-    assert osc_out.par.address == "192.168.0.103"
+    assert osc_out.par.address == "192.168.0.107"
     assert osc_out.par.port == 9999
+    assert len(osc_out.sent) == 2
