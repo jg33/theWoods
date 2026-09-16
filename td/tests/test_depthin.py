@@ -63,3 +63,18 @@ def test_height_band_unconfigured_clip_is_noop():
     assert depth_logic.in_height_band(0.0, None, None)
     assert depth_logic.in_height_band(1e9, None, None)
     assert depth_logic.in_height_band(-1e9, None, None)
+
+
+def test_load_cameras_from_path(tmp_path):
+    import project1.depthIn.cam_exec as ce
+
+    p = tmp_path / "cameras.tsv"
+    p.write_text(HEADER + "cam1\t1\t0\t0\t1\t0\t0\t0\t1\n")
+    cams = ce.load_cameras(str(p))
+    assert cams["cam1"]["enabled"] is True
+
+
+def test_load_cameras_missing_path_returns_empty(tmp_path):
+    import project1.depthIn.cam_exec as ce
+
+    assert ce.load_cameras(str(tmp_path / "nope.tsv")) == {}

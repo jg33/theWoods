@@ -6,17 +6,19 @@ TD; here we only resolve the TSV row into the per-cam params a Transform POP's
 custom parameter binds to (via the `depth_logic` helpers). In TD this script
 CHOP drives the `enabled` toggles on each `camN` sub-COMP and reads the
 `clipMin`/`clipMax` params for the band clip.
+
+In TouchDesigner, `depth_logic` is a sibling Text DAT (like `targets_exec` uses
+`mod("target_logic")`); `load_cameras` takes the resolved path to `cameras.tsv`.
 """
 
-import os
+try:
+    import depth_logic  # TD: sibling Text DAT
+except ImportError:
+    from . import depth_logic  # pytest: package path
 
-from . import depth_logic
 
-TSV_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "cameras.tsv")
-
-
-def load_cameras(tsv_path=TSV_PATH):
-    """Return enabled camera param dicts, or {} if the file is absent/unreadable."""
+def load_cameras(tsv_path):
+    """Return per-camera param dicts from a cameras.tsv path, or {} if unreadable."""
     try:
         with open(tsv_path, "r", encoding="utf-8") as f:
             return depth_logic.parse_cameras(f.read())

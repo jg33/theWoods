@@ -247,7 +247,9 @@ Repeat for each camera row.
 - `enabled_cameras(cams)` → the ids of enabled rows, the ones actually merged.
 - `in_height_band(y, clipMin, clipMax)` → inclusive height-band predicate; `None` bound = unclipped side.
 
-Use it from an **Execute DAT** to bind the Transform POP params / enable toggles, or to drive a per-cam enable menu. The geometry/clip math stays in TD's Transform/Merge/Ortho — do not reimplement it here.
+`td/project1/depthIn/cam_exec.py` (used as the **Script CHOP callbacks** / enable driver in TD) exposes `load_cameras(tsv_path)` → same dict as `parse_cameras`, or `{}` if the TSV path is unreadable.
+
+Use these from a **Script CHOP** / **Execute DAT** (`cam_exec`) to bind the Transform POP params / enable toggles and read `clipMin`/`clipMax`; the geometry/clip math stays in TD's Transform/Merge/Ortho — do not reimplement it here.
 
 ### Parameter defaults
 
