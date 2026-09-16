@@ -14,6 +14,7 @@ if "light_logic" not in globals():
 
 def onSetupParameters(scriptOp):
     # Global state controls
+    scriptOp.appendParToggle("Manualoverride", label="Manual Override")
     scriptOp.appendParFloat("Manualstate", label="Manual State")
     scriptOp.appendParToggle("Bisidle", label="Is Idle")
 
@@ -105,18 +106,19 @@ def onCook(scriptOp):
         scriptOp.clear()
         return
 
-    # Inputs: targets DAT (0), tracks DAT (1)
-    inputs = scriptOp.inputs
-    targets_dat = inputs[0] if len(inputs) > 0 else None
-    tracks_dat = inputs[1] if len(inputs) > 1 else None
+    # Script CHOP inlets accept only CHOP-family inputs, so the targets/tracks
+    # Table DATs are referenced by path instead of being wired in as inputs.
+    targets_dat = op("../tracking/targets") if op else None
+    tracks_dat = op("../trackUI/tracks") if op else None
 
     targets = _parse_targets(targets_dat)
     tracks = _parse_tracks(tracks_dat)
 
     # State machine
+    manual_override = bool(scriptOp.par.Manualoverride) if hasattr(scriptOp.par, "Manualoverride") else False
     manual_state = float(scriptOp.par.Manualstate) if hasattr(scriptOp.par, "Manualstate") else None
     b_is_idle = bool(scriptOp.par.Bisidle) if hasattr(scriptOp.par, "Bisidle") else False
-    state = light_logic.woods_state(b_is_idle, targets, manual_state)
+    state = light_logic.woods_state(b_is_idle, targets, manual_state if manual_override else None)
 
     # Fetch or initialize light state
     lights = _get_lights(scriptOp)

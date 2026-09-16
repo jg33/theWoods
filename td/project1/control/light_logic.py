@@ -102,6 +102,10 @@ def update_light(l, targets, state, t=0.0, elapsed=0.0, noise_func=None):
             dist = math.dist(l["current"], target["current"])
             if dist < max_dist:
                 di = dist_influence(dist, max_dist, target["influence"])
+                # ponytail: lerp toward the target's projection onto the track
+                # rather than the raw targetPos — keeps the carriage on the rail.
+                # Deliberate deviation from OF; drop the projection if literal
+                # OF behavior (lerp toward targetPos directly) is wanted.
                 track_target = _closest_point_on_segment(
                     target["current"], l["start"], l["end"]
                 )

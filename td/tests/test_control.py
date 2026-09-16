@@ -197,6 +197,7 @@ def test_max_distance_indexed_by_track_id():
     ])
 
     class _MockPar:
+        Manualoverride = False
         Manualstate = 0.0
         Bisidle = False
         Idlehighlightmin = 2.0
@@ -213,7 +214,6 @@ def test_max_distance_indexed_by_track_id():
     class _MockScriptOp:
         def __init__(self):
             self._stored = {}
-            self.inputs = [None, tracks_dat]
             self.par = _MockPar()
             self.time = type("time", (), {"seconds": 0.0})()
             self.rate = 60
@@ -230,6 +230,9 @@ def test_max_distance_indexed_by_track_id():
 
         def appendChan(self, name):
             return [0.0]
+
+    # Patch TD op() so onCook resolves targets/tracks by path (as in TD).
+    control_exec.op = lambda name: {"../trackUI/tracks": tracks_dat}.get(name)
 
     scriptOp = _MockScriptOp()
     control_exec.onCook(scriptOp)
@@ -252,3 +255,63 @@ def test_max_distance_indexed_by_track_id():
     assert by_id[0]["maxDistance"] == 111.0
     assert by_id[3]["maxDistance"] == 222.0
     assert by_id[7]["maxDistance"] == 333.0
+
+
+def _mock_dat(rows):
+    return _MockDat(rows)
+
+
+def test_manual_override_gate_reaches_automatic_idle():
+    """Regression (finding 2): with Manualoverride Off, woods_state must be
+    fed None so the automatic state machine (bIsIdle / all-quiet) is reachable —
+    Manualstate alone must NOT permanently force the manual override."""
+    from project1.control import control_exec
+
+    control_exec.light_logic = light_logic
+    control_exec.me = type("me", (), {"time": type("time", (), {"rate": 60})()})()
+    control_exec.op = lambda name: {
+        "../tracking/targets": _mock_dat([["label", "x", "y", "influence", "quiet", "dying"]]),
+        "../trackUI/tracks": _mock_dat([["id", "sx", "sy", "ex", "ey", "ip"]]),
+    }.get(name)
+
+    class _MockPar:
+        Manualoverride = False
+        Manualstate = 3.0  # would force NIGHT if the override ignored the gate
+        Bisidle = True
+        Idlehighlightmin = 2.0
+        Idlehighlightmax = 10.0
+
+        def __getattr__(self, name):
+            if name.startswith("Maxdistance"):
+                return 300.0
+            raise AttributeError(name)
+
+    class _MockScriptOp:
+        def __init__(self):
+            self._stored = {}
+            self.chans = []
+            self.par = _MockPar()
+            self.time = type("time", (), {"seconds": 0.0})()
+            self.rate = 60
+            self.numSamples = 1
+
+        def fetch(self, key, default):
+            return self._stored.get(key, default)
+
+        def store(self, key, value):
+            self._stored[key] = value
+
+        def clear(self):
+            self.chans = []
+
+        def appendChan(self, name):
+            c = [0.0]
+            self.chans.append((name, c))
+            return c
+
+    scriptOp = _MockScriptOp()
+    control_exec.onCook(scriptOp)
+    # With Manualoverride Off + Bisidle True, the automatic machine yields IDLE
+    # (1), never the manual NIGHT (3) that Manualstate alone would force.
+    states = [c[0] for n, c in scriptOp.chans if n == "state"]
+    assert states == [1]

@@ -21,11 +21,54 @@ def onSetupParameters(scriptOp):
     scriptOp.appendParToggle("Mirrorunreal", label="Mirror Unreal")
     scriptOp.appendParStr("Mirrorunrealip", label="Unreal IP", defaultValue="127.0.0.1")
     scriptOp.appendParInt("Mirrorunrealport", label="Unreal Port", defaultValue=9998)
+
+    # Manual light control, operator-triggered from the network COMP parameter
+    # page. Select the target light, then pulse a control; each message is
+    # addressed to the node IP (`/light/<n>/identify|calibrate|zero|stop`) or
+    # (`/light/<n>/move` with steps) from `../trackUI/tracks`.
+    scriptOp.appendParInt("Light", label="Light", defaultValue=0)
+    scriptOp.appendParPulse("Identify", label="Identify")
+    scriptOp.appendParPulse("Calibrate", label="Calibrate")
+    scriptOp.appendParPulse("Zero", label="Zero")
+    scriptOp.appendParPulse("Stop", label="Stop")
+    scriptOp.appendParInt("Moveamount", label="Move Steps", defaultValue=0)
+    scriptOp.appendParPulse("Move", label="Move")
     return
 
 
-def onPulse(par):
+def _send_control(scriptOp, light_id, control, steps=0):
+    """Send a one-off control message to a single node's IP."""
+    tracks_dat = op("../trackUI/tracks") if op else None
+    ip_by_id = _tracks_by_id(tracks_dat)
+    ip = ip_by_id.get(light_id)
+    if not ip:
+        return
+    address, args = net_logic.control_message(light_id, control, steps=steps)
+    osc_out = op("../oscOut") if op else None
+    if osc_out is None:
+        return
+    osc_out.par.address = ip
+    osc_out.par.port = int(getattr(scriptOp.par, "Nodeport", 9999))
+    osc_out.sendOSC(address, args)
+
+
+def onPulse(scriptOp, par):
+    # par is a pulse; dispatch any control pulse to the selected light.
+    control = par.name.lower()
+    if control in ("identify", "calibrate", "zero", "stop"):
+        _send_control(scriptOp, _selected_light(scriptOp), control)
+    elif control == "move":
+        _send_control(
+            scriptOp,
+            _selected_light(scriptOp),
+            "move",
+            steps=int(getattr(scriptOp.par, "Moveamount", 0)),
+        )
     return
+
+
+def _selected_light(scriptOp):
+    return int(getattr(scriptOp.par, "Light", 0))
 
 
 # --------------------------------------------------------------------------
