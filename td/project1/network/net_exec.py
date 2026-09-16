@@ -99,9 +99,12 @@ def onCook(scriptOp):
         ip = ip_by_id.get(lid)
         if not ip:
             continue
+        # Decide send-or-skip ONCE per light, then emit both the position and
+        # intensity messages (the throttle is keyed per-light — checking it per
+        # address would let the first message consume the slot and drop the second).
+        if not throttle.should_send(lid, light["locationPercent"], light["intensity"]):
+            continue
         for address, args in net_logic.node_messages(lid, light["locationPercent"], light["intensity"]):
-            if not throttle.should_send(lid, light["locationPercent"], light["intensity"]):
-                continue
             if osc_out is not None:
                 # Unicast to this node: point the OSC Out DAT at its IP.
                 osc_out.par.hostname = ip

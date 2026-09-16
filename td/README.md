@@ -181,8 +181,8 @@ Inside `/project1/network` (a Base COMP), build the OSC I/O: outbound position/i
 - Listen Port: `8899`
 - Send Rate: `30` Hz (ceiling)
 - Node Port: `9999`
-- Mirror Max: Off — IP `192.168.0.200`, port `9999`
-- Mirror Unreal: Off — IP `192.168.0.210`, port `9998`
+- Mirror Max: Off — IP `127.0.0.1`, port `9999`
+- Mirror Unreal: Off — IP `127.0.0.1`, port `9998`
 
 ### OSC contract
 
