@@ -3,6 +3,12 @@
 ## Status
 **COMPLETE**
 
+## Commits (authored here, on `td-port`)
+- `5a8e10f` feat(td): depthIn — POP merge/clip/overhead render
+- `4cd0971` fix(td): cam_exec TD/pytest import fallback, wire helpers into README
+
+(Note: a concurrent/integrator pass has since added `3ef3efc` removing the empty placeholder `.tox` and a `review-t6.diff` packet; history rebasing is the integrator's job — no further action taken here.)
+
 ## Summary
 Built the `depthIn` COMP (camera-agnostic depth acquisition → merged point cloud → ortho overhead TOP) for the OF→TD port. Deliverable is precise numbered TD build instructions in `td/README.md` under "## depthIn COMP", plus a pure-Python `depth_logic.py` module with tests.
 
