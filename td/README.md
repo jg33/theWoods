@@ -77,6 +77,32 @@ Inside `/project1/tracking` (a Base COMP), build this network to replicate the O
 - Threshold blur: `10`
 - Idle timeout: `500` frames
 
+## control COMP
+
+Inside `/project1/control` (a Base COMP), build this network to replicate the OF `Light`/`WoodsState` behavior:
+
+1. Add two inputs to the COMP:
+   - Input 0: `../tracking/targets` **Table DAT** (`label, x, y, influence, quiet, dying`).
+   - Input 1: `../trackUI/tracks` **Table DAT** (`id, sx, sy, ex, ey, ip`) or point directly to `td/data/tracks.tsv`.
+2. Add a **Script CHOP** named `controlcook`:
+   - Parameter: **Callbacks DAT** → the sibling Text DAT `control_exec.py`
+   - Parameter: **Cook Type** → `Python`
+   - Connect its two inputs to the `targets` and `tracks` DATs.
+3. Inside `/project1/control`, add a **Text DAT** named `light_logic` and point its `file` parameter to `td/project1/control/light_logic.py`, **Sync to File** On.
+4. Add another **Text DAT** named `control_exec` and point its `file` parameter to `td/project1/control/control_exec.py`, **Sync to File** On. In the `controlcook` Script CHOP **Callbacks DAT** field, set it to `control_exec`.
+5. Inside `/project1/control`, add a **Table DAT** named `lights` (columns will be set at runtime: `id, locationPercent, intensity`).
+6. `controlcook` → `null1` **Null CHOP** to expose the `state` channel.
+7. Add a **Noise CHOP** named `idlenoise` (or use `absTime.seconds` in a Math CHOP) and reference it in `control_exec.py` if you want real `ofNoise(t+id*6.66)`-style noise. The provided `light_logic.py` has a deterministic sine fallback, but in TD a Noise CHOP is closer to OF behavior.
+8. Externalize `/project1/control` to `td/project1/control.tox` and ensure `light_logic.py`, `control_exec.py`, and any generated Python DATs are saved as external files in `td/project1/control/`.
+
+### Parameter defaults
+
+- Manual State: `0` (NORMAL)
+- Is Idle: `Off`
+- Light Max Distance (per light): `300` pixels
+- Idle Highlight Min: `2` s
+- Idle Highlight Max: `10` s
+
 ## Open
 
 Open `td/theWoods.toe` in TouchDesigner. Externalized COMPs restore from `td/project1/`.
