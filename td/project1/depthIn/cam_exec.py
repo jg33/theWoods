@@ -18,7 +18,10 @@ except ImportError:
 
 
 def load_cameras(tsv_path):
-    """Return per-camera param dicts from a cameras.tsv path, or {} if unreadable."""
+    """Return per-camera param dicts from a cameras.tsv path (all rows, enabled or not), or {} if unreadable.
+
+    Returns all rows (not just enabled ones) — the caller decides which to merge.
+    """
     try:
         with open(tsv_path, "r", encoding="utf-8") as f:
             return depth_logic.parse_cameras(f.read())

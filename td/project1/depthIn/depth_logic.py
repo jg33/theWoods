@@ -10,11 +10,14 @@ def parse_cameras(tsv_text):
     """Parse cameras.tsv into a dict keyed by camera id.
 
     Schema: id, enabled, tx, ty, tz, rx, ry, rz, scale.
-    Blank lines and full-line comments (#...) are ignored. Rows shorter than the
-    header are skipped. `enabled` is truthy for 1/true/yes/on. Returns {} if there
-    is only a header.
+    Blank lines and comments (#..., incl. leading whitespace) are ignored. Rows
+    shorter than the header are skipped. `enabled` is truthy for 1/true/yes/on.
+    Returns {} if there is only a header.
     """
-    lines = [l for l in tsv_text.splitlines() if l.strip() and not l.startswith("#")]
+    lines = [
+        l for l in tsv_text.splitlines()
+        if l.strip() and not l.strip().startswith("#")
+    ]
     if not lines:
         return {}
     header = [h.strip() for h in lines[0].split("\t")]
@@ -25,6 +28,7 @@ def parse_cameras(tsv_text):
             continue
         row = dict(zip(header, parts))
         try:
+            # Duplicate id rows: last wins (deliberate — later rows override earlier).
             cams[row["id"]] = {
                 "enabled": row["enabled"].lower() in ("1", "true", "yes", "on"),
                 "tx": float(row["tx"]),

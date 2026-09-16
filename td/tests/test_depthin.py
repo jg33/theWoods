@@ -40,6 +40,12 @@ def test_parse_cameras_comment_and_blank():
     assert cams == {}
 
 
+def test_parse_cameras_skips_indented_comment_row():
+    # Leading-whitespace comment lines must be stripped before the # check.
+    cams = depth_logic.parse_cameras(HEADER + "\t# indented comment\n" + ROW)
+    assert set(cams.keys()) == {"cam1"}
+
+
 def test_parse_cameras_tolerates_true_string_enabled():
     cams = depth_logic.parse_cameras(HEADER + "a\ttrue\t0\t0\t1\t0\t0\t0\t1\n")
     assert cams["a"]["enabled"] is True
