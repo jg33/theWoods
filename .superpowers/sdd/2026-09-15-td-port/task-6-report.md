@@ -31,3 +31,22 @@ Built the `depthIn` COMP (camera-agnostic depth acquisition → merged point clo
 ## Notes / concerns
 - `cameras.tsv` currently contains only the header (no data rows yet) — `parse_cameras` correctly returns `{}` until cams are added; the merge/clip/render steps document wiring once rows exist. This is expected: calibration happens against real hardware.
 - Kept lazy: Transform/Merge POPs and the ortho camera do all geometry/clip math natively in TD; `depth_logic.py` only covers what must live outside TD (TSV parsing, enabled filtering, band-predicate sanity check). No reimplementation of TD-native math.
+
+## Task 6 follow-up: reviewer fixes
+
+**Status: COMPLETE.** All 6 findings addressed. Suite: **70 passed** (`uv run --with pytest pytest td/tests/ -v`, up from 67).
+
+### Fixes
+1. **README step 8** (height-band clip) — already revised in a concurrent pass: `merge1` → **Delete POP** with a Y-range expression, **Script POP** alternative. Verified in committed README.
+2. **README step 10** (Render TOP path) — already revised in a concurrent pass: clipped POP → **Geometry COMP** `geoCloud` → **Render TOP** `renderO` → `camOverhead`. Verified in committed README.
+3. **README step 5** (sub-COMP output) — already revised: "Input count" → **Output** count, and POP output requires an **Out POP** (`out1`) wired from Null `outcloudN`. Verified in committed README.
+4. **`cam_exec.py:20` docstring** — now states it returns **all rows** (not only enabled); caller decides which to merge. Fixed here.
+5. **`depth_logic.py:21` indented comments** — line is stripped before the `startswith("#")` check; added `test_parse_cameras_skips_indented_comment_row`. Fixed here.
+6. **Duplicate id rows** — added a code comment: last-wins is deliberate. Fixed here.
+
+### Commit (authored here, on `td-port`)
+- `71eb0a0` fix(td): indented-comment TSV rows, cam_exec all-rows docstring, dup-id note — author `Jesse Garrison <jesse@nightlight.io>`
+
+### Notes / concerns
+- README findings 1–3 were already landed by a concurrent/integrator pass before I started; I verified them against the working tree rather than re-editing. No conflict.
+- No GPG secret key exists in this environment, so the commit is not GPG-signed (consistent with prior repo commits); author identity is set to `Jesse Garrison <jesse@nightlight.io>`. If a signed commit is required, it must be done where the key lives.
